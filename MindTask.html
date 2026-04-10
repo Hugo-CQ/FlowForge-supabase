@@ -55,7 +55,7 @@ body.drag-sorting,body.drag-sorting *{-webkit-user-select:none;user-select:none;
 .proj-item .pdel{opacity:0;width:20px;height:20px;border:none;background:none;cursor:pointer;color:var(--danger);font-size:14px;border-radius:4px;display:flex;align-items:center;justify-content:center}
 .proj-item:hover .pdel{opacity:1}
 .proj-item .pdel:hover{background:var(--dangerS)}
-#canvasWrap{flex:1;position:relative;overflow:hidden;background:var(--bg)}
+#canvasWrap{flex:1;position:relative;overflow:hidden;background:var(--bg);touch-action:none}
 #canvasWrap.bg-blank{background-image:none}
 #canvasWrap.bg-dots{background-image:radial-gradient(circle at 1px 1px, var(--pattern) 1px, transparent 1px)}
 #canvasWrap.bg-grid{background-image:linear-gradient(var(--pattern) 1px, transparent 1px),linear-gradient(90deg, var(--pattern) 1px, transparent 1px)}
@@ -282,7 +282,7 @@ svg.lines{position:absolute;top:0;left:0;overflow:visible;pointer-events:none}
 </div>
 <div id="projectList"></div>
 </div>
-<div id="canvasWrap" onmousedown="panStart(event)" onwheel="onZoom(event)" ondblclick="dblClickCanvas(event)">
+<div id="canvasWrap" onmousedown="panStart(event)" ondblclick="dblClickCanvas(event)">
 <div id="canvas">
 <svg class="lines" id="svgLines"></svg>
 </div>
@@ -352,6 +352,8 @@ let curProjId = null;
 let selectedId = null;
 let zoom = 1, panX = 0, panY = 0;
 let isPanning = false, panSX, panSY, panOX, panOY;
+let canvasTouchPan = null;
+let canvasTouchPinch = null;
 let nodePositions = {};
 let nodeHeightCache = {};
 let relayoutPass = 0;
@@ -1643,7 +1645,11 @@ function startQuickSelect(id,field,targetClass,options){
 }
 
 /* ===== CANVAS PAN/ZOOM ===== */
+function isSyntheticMouseFromTouch(e){
+  return !!(e&&e.sourceCapabilities&&e.sourceCapabilities.firesTouchEvents);
+}
 function panStart(e){
+  if(isSyntheticMouseFromTouch(e))return;
   if(e.target.closest('.node'))return;
   isPanning=true;panSX=e.clientX;panSY=e.clientY;panOX=panX;panOY=panY;
   let mm=(ev)=>{panX=panOX+(ev.clientX-panSX);panY=panOY+(ev.clientY-panSY);updateCanvasTransform()};
@@ -1666,6 +1672,7 @@ function dblClickCanvas(e){if(e.target.closest('.node'))return;centerRoot()}
 // Click blank to close right panel (ignore drags)
 let blankDown=null;
 document.getElementById('canvasWrap').addEventListener('mousedown',(e)=>{
+  if(isSyntheticMouseFromTouch(e)){blankDown=null;return}
   if(e.target.closest('.node')){blankDown=null;return}
   blankDown={x:e.clientX,y:e.clientY};
 });
@@ -1676,6 +1683,61 @@ document.getElementById('canvasWrap').addEventListener('click',(e)=>{
   if(dx+dy<6)closePanel();
   blankDown=null;
 });
+
+function canvasWrapTouchStart(e){
+  if(e.target.closest('.node')){canvasTouchPan=null;canvasTouchPinch=null;return}
+  if(e.touches.length===1){
+    canvasTouchPinch=null;
+    let t=e.touches[0];
+    canvasTouchPan={sx:t.clientX,sy:t.clientY,ox:panX,oy:panY};
+  }else if(e.touches.length===2){
+    canvasTouchPan=null;
+    let t0=e.touches[0],t1=e.touches[1];
+    let dist=Math.hypot(t1.clientX-t0.clientX,t1.clientY-t0.clientY);
+    let rect=document.getElementById('canvasWrap').getBoundingClientRect();
+    let mx=((t0.clientX+t1.clientX)/2)-rect.left,my=((t0.clientY+t1.clientY)/2)-rect.top;
+    canvasTouchPinch={startDist:Math.max(dist,8),startZoom:zoom,mx,my,startPanX:panX,startPanY:panY};
+    e.preventDefault();
+  }
+}
+function canvasWrapTouchMove(e){
+  if(e.touches.length===2&&canvasTouchPinch){
+    e.preventDefault();
+    let t0=e.touches[0],t1=e.touches[1];
+    let dist=Math.hypot(t1.clientX-t0.clientX,t1.clientY-t0.clientY);
+    let k=canvasTouchPinch.startDist,z0=canvasTouchPinch.startZoom;
+    let nz=Math.max(0.2,Math.min(3,z0*(dist/k)));
+    let mx=canvasTouchPinch.mx,my=canvasTouchPinch.my;
+    panX=mx-(mx-canvasTouchPinch.startPanX)*(nz/z0);
+    panY=my-(my-canvasTouchPinch.startPanY)*(nz/z0);
+    zoom=nz;updateCanvasTransform();
+  }else if(e.touches.length===1&&canvasTouchPan&&!e.target.closest('.node')){
+    e.preventDefault();
+    let t=e.touches[0];
+    panX=canvasTouchPan.ox+(t.clientX-canvasTouchPan.sx);
+    panY=canvasTouchPan.oy+(t.clientY-canvasTouchPan.sy);
+    updateCanvasTransform();
+  }
+}
+function canvasWrapTouchEnd(e){
+  if(e.touches.length===0){canvasTouchPan=null;canvasTouchPinch=null;return}
+  if(e.touches.length===1){
+    canvasTouchPinch=null;
+    if(!e.target.closest('.node')){
+      let t=e.touches[0];
+      canvasTouchPan={sx:t.clientX,sy:t.clientY,ox:panX,oy:panY};
+    }else canvasTouchPan=null;
+  }
+}
+(function bindCanvasWrapGestures(){
+  let wrap=document.getElementById('canvasWrap');
+  if(!wrap)return;
+  wrap.addEventListener('wheel',onZoom,{passive:false});
+  wrap.addEventListener('touchstart',canvasWrapTouchStart,{passive:false});
+  wrap.addEventListener('touchmove',canvasWrapTouchMove,{passive:false});
+  wrap.addEventListener('touchend',canvasWrapTouchEnd);
+  wrap.addEventListener('touchcancel',canvasWrapTouchEnd);
+})();
 
 function fitCanvas(){
   let wrap=document.getElementById('canvasWrap');
@@ -2207,7 +2269,8 @@ Object.assign(window,{
   toggleProjectPanel,toggleCalendarDrawer,newProject,closePanel,epUpdate,clearDue,
   highlightBranchFromPanel,addChildFromPanel,addSiblingFromPanel,deleteFromPanel,
   setCalMode,calShiftPeriod,calGoToday,batchSetStatus,batchDelete,renderAll,zoomBy,onSearch,
-  applyFilters,applyViewMask,manualSyncToCloud,doLogout
+  applyFilters,applyViewMask,manualSyncToCloud,doLogout,
+  panStart,onZoom,dblClickCanvas
 });
 </script>
 </body>
