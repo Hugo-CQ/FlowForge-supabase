@@ -1663,12 +1663,13 @@ function onZoom(e){
   let mx=e.clientX-rect.left, my=e.clientY-rect.top;
   let dz;
   if(e.ctrlKey){
-    dz=-e.deltaY*0.02;
+    dz=-e.deltaY*0.009;
+    dz=Math.max(-0.04,Math.min(0.04,dz));
   }else{
     dz=e.deltaY>0?-0.1:0.1;
+    if(e.deltaMode===1)dz*=12;
+    if(e.deltaMode===2)dz*=32;
   }
-  if(e.deltaMode===1)dz*=12;
-  if(e.deltaMode===2)dz*=32;
   let nz=Math.max(0.2,Math.min(3,zoom+dz));
   panX=mx-(mx-panX)*(nz/zoom);
   panY=my-(my-panY)*(nz/zoom);
