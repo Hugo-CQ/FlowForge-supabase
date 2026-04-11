@@ -437,8 +437,13 @@ function debounceSaveToCloud(){
 }
 function collectUiState(){
   let si=document.getElementById('searchInput');
+  let wrap=document.getElementById('canvasWrap');
+  let W=wrap?wrap.clientWidth:0,H=wrap?wrap.clientHeight:0;
+  let z=Math.max(0.2,Math.min(3,zoom||1));
+  let viewCenterWx=W>0?(W/2-panX)/z:0;
+  let viewCenterWy=H>0?(H/2-panY)/z:0;
   return{
-    v:1,
+    v:2,
     statusFilters:[...statusFilters],
     priorityFilters:[...priorityFilters],
     statusLinkParent:!!document.getElementById('statusLinkParentCb')?.checked,
@@ -449,7 +454,8 @@ function collectUiState(){
       stopped:!!document.getElementById('viewMaskStoppedCb')?.checked
     },
     calMode,calViewYear,calViewMonth,calPickDateStr,
-    zoom,panX,panY,
+    zoom:z,
+    viewCenterWx,viewCenterWy,
     searchQuery:si?si.value:''
   };
 }
@@ -475,8 +481,22 @@ function applyUiState(raw){
   if(typeof raw.calViewMonth==='number'&&isFinite(raw.calViewMonth))calViewMonth=raw.calViewMonth;
   if(typeof raw.calPickDateStr==='string')calPickDateStr=raw.calPickDateStr;
   if(typeof raw.zoom==='number'&&isFinite(raw.zoom))zoom=Math.max(0.2,Math.min(3,raw.zoom));
-  if(typeof raw.panX==='number'&&isFinite(raw.panX))panX=raw.panX;
-  if(typeof raw.panY==='number'&&isFinite(raw.panY))panY=raw.panY;
+  let wrap=document.getElementById('canvasWrap');
+  if(wrap){
+    let W=wrap.clientWidth,H=wrap.clientHeight;
+    let z=zoom;
+    if(
+      typeof raw.viewCenterWx==='number'&&isFinite(raw.viewCenterWx)&&
+      typeof raw.viewCenterWy==='number'&&isFinite(raw.viewCenterWy)&&
+      W>0&&H>0
+    ){
+      panX=W/2-raw.viewCenterWx*z;
+      panY=H/2-raw.viewCenterWy*z;
+    }else if(typeof raw.panX==='number'&&isFinite(raw.panX)&&typeof raw.panY==='number'&&isFinite(raw.panY)){
+      panX=raw.panX;
+      panY=raw.panY;
+    }
+  }
   let si=document.getElementById('searchInput');
   if(si&&typeof raw.searchQuery==='string')si.value=raw.searchQuery;
   applyFilters();
