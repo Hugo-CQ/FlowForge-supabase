@@ -132,7 +132,6 @@
       </div>
 
       <button type="button" id="loginBtn">登录</button>
-      <button type="button" id="logoutBtn">退出登录</button>
 
       <div id="msg" role="status" aria-live="polite">正在加载…</div>
     </div>
@@ -190,13 +189,12 @@
     }
 
     const loginBtn = document.getElementById('loginBtn');
-    const logoutBtn = document.getElementById('logoutBtn');
     const emailEl = document.getElementById('email');
     const passwordEl = document.getElementById('password');
     const rememberMeEl = document.getElementById('rememberMe');
     const showPasswordEl = document.getElementById('showPassword');
 
-    if (!loginBtn || !logoutBtn || !emailEl || !passwordEl) {
+    if (!loginBtn || !emailEl || !passwordEl) {
       setErr('页面结构', '缺少登录表单所需 DOM（如 #loginBtn）');
       return;
     }
@@ -263,17 +261,6 @@
         } finally {
           loginBtn.disabled = false;
         }
-      });
-
-      logoutBtn.addEventListener('click', async () => {
-        setMsg('正在退出…');
-        msgEl.classList.remove('msg-error', 'msg-success');
-        const { error } = await supabase.auth.signOut();
-        if (error) {
-          setErr('退出登录', error.message || 'signOut 失败');
-          return;
-        }
-        setMsg('已退出登录', 'success');
       });
 
       supabase.auth.onAuthStateChange((event) => {
