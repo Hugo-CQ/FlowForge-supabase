@@ -372,6 +372,8 @@ let priorityFilters = new Set();
 let filterHits = new Set();
 let calMode = 'month';
 let multiSelected=new Set();
+let projectUiStates={};
+let didRestoreProjectUi=false;
 
 let undoStack=[];
 let redoStack=[];
@@ -443,7 +445,6 @@ function collectUiState(){
   let viewCenterWx=W>0?(W/2-panX)/z:0;
   let viewCenterWy=H>0?(H/2-panY)/z:0;
   return{
-    v:2,
     statusFilters:[...statusFilters],
     priorityFilters:[...priorityFilters],
     statusLinkParent:!!document.getElementById('statusLinkParentCb')?.checked,
@@ -458,6 +459,24 @@ function collectUiState(){
     viewCenterWx,viewCenterWy,
     searchQuery:si?si.value:''
   };
+}
+function buildFullUiPrefs(){
+  projectUiStates[curProjId]=JSON.parse(JSON.stringify(collectUiState()));
+  return{v:3,perProject:JSON.parse(JSON.stringify(projectUiStates)),activeProjectId:curProjId};
+}
+function applyEmptyProjectUi(){
+  statusFilters.clear();priorityFilters.clear();filterHits.clear();
+  clearFilterUI();clearViewMaskUI();
+  let si=document.getElementById('searchInput');
+  if(si)si.value='';
+  let res=document.getElementById('searchResults');
+  if(res)res.style.display='none';
+  searchHits.clear();
+  zoom=1;panX=0;panY=0;
+  calMode='month';calViewYear=null;calViewMonth=null;calPickDateStr='';
+  updateCanvasTransform();
+  renderAll();
+  setTimeout(fitCanvas,50);
 }
 function applyUiState(raw){
   if(!raw||typeof raw!=='object')return;
@@ -512,7 +531,7 @@ function applyUiState(raw){
 }
 function scheduleUiPrefsSync(){
   if(isBootstrapping)return;
-  try{localStorage.setItem('mt_ui_prefs',JSON.stringify(collectUiState()));}catch(e){}
+  try{localStorage.setItem('mt_ui_prefs',JSON.stringify(buildFullUiPrefs()));}catch(e){}
   debounceSaveToCloud();
 }
 function setSyncStatusUi(code){
@@ -544,7 +563,7 @@ async function syncToCloud(){
       user_id:session.user.id,
       projects:projects,
       cur_proj_id:curProjId,
-      ui_prefs:collectUiState(),
+      ui_prefs:buildFullUiPrefs(),
       updated_at:new Date().toISOString()
     };
     let { error }=await supabase.from(MINDTASK_STATE_TABLE).upsert(payload,{onConflict:'user_id'});
@@ -606,7 +625,15 @@ async function bootstrapFromCloud(user){
     applyLocalStoragePrefs();
     try{
       let u=localStorage.getItem('mt_ui_prefs');
-      if(u)applyUiState(JSON.parse(u));
+      if(u){
+        let p=JSON.parse(u);
+        if(p.v===3&&p.perProject){
+          projectUiStates=JSON.parse(JSON.stringify(p.perProject));
+          let snap=projectUiStates[curProjId];
+          if(snap&&Object.keys(snap).length>0){applyUiState(snap);didRestoreProjectUi=true;}
+          else{applyEmptyProjectUi();didRestoreProjectUi=true;}
+        }else{applyUiState(p);didRestoreProjectUi=true;}
+      }
     }catch(e){}
     setSyncStatusUi('error');
     showSyncToast('读取云端失败，已使用本地缓存');
@@ -650,11 +677,27 @@ async function bootstrapFromCloud(user){
   applyLocalStoragePrefs();
 
   if(row&&row.ui_prefs&&typeof row.ui_prefs==='object'){
-    applyUiState(row.ui_prefs);
+    if(row.ui_prefs.v===3&&row.ui_prefs.perProject&&typeof row.ui_prefs.perProject==='object'){
+      projectUiStates=JSON.parse(JSON.stringify(row.ui_prefs.perProject));
+      let snap=projectUiStates[curProjId];
+      if(snap&&Object.keys(snap).length>0){applyUiState(snap);didRestoreProjectUi=true;}
+      else{applyEmptyProjectUi();didRestoreProjectUi=true;}
+    }else{
+      projectUiStates={[curProjId]:JSON.parse(JSON.stringify(row.ui_prefs))};
+      applyUiState(row.ui_prefs);didRestoreProjectUi=true;
+    }
   }else{
     try{
       let u=localStorage.getItem('mt_ui_prefs');
-      if(u)applyUiState(JSON.parse(u));
+      if(u){
+        let p=JSON.parse(u);
+        if(p.v===3&&p.perProject){
+          projectUiStates=JSON.parse(JSON.stringify(p.perProject));
+          let snap=projectUiStates[curProjId];
+          if(snap&&Object.keys(snap).length>0){applyUiState(snap);didRestoreProjectUi=true;}
+          else{applyEmptyProjectUi();didRestoreProjectUi=true;}
+        }else{applyUiState(p);didRestoreProjectUi=true;}
+      }
     }catch(e){}
   }
 
@@ -765,28 +808,36 @@ function renderProjects(){
 function newProject(){
   let name=prompt('项目名称:','新项目');
   if(!name)return;
+  projectUiStates[curProjId]=JSON.parse(JSON.stringify(collectUiState()));
   let p=defaultProject(name);
   projects.push(p);
   curProjId=p.id;
   selectedId=null;
   closePanel();
-  save();renderProjects();renderAll();setTimeout(fitCanvas,50);
+  applyEmptyProjectUi();
+  save();renderProjects();
 }
 function switchProject(id){
   if(id===curProjId)return;
-  curProjId=id;selectedId=null;closePanel();searchHits.clear();branchHighlightHits.clear();branchHighlightRootId=null;
-  statusFilters.clear();priorityFilters.clear();filterHits.clear();
-  clearFilterUI();
-  clearViewMaskUI();
-  document.getElementById('searchInput').value='';
-  document.getElementById('searchResults').style.display='none';
-  save();renderProjects();renderAll();setTimeout(fitCanvas,50);
+  projectUiStates[curProjId]=JSON.parse(JSON.stringify(collectUiState()));
+  curProjId=id;
+  selectedId=null;closePanel();searchHits.clear();branchHighlightHits.clear();branchHighlightRootId=null;
+  let snap=projectUiStates[id];
+  if(snap&&Object.keys(snap).length>0)applyUiState(snap);
+  else applyEmptyProjectUi();
+  save();renderProjects();
 }
 function deleteProject(id){
   if(projects.length<=1)return;
   if(!confirm('确定删除此项目？'))return;
   projects=projects.filter(p=>p.id!==id);
-  if(curProjId===id){curProjId=projects[0].id;selectedId=null;closePanel()}
+  delete projectUiStates[id];
+  if(curProjId===id){
+    curProjId=projects[0].id;selectedId=null;closePanel();
+    let snap=projectUiStates[curProjId];
+    if(snap&&Object.keys(snap).length>0)applyUiState(snap);
+    else applyEmptyProjectUi();
+  }
   save();renderProjects();renderAll();
 }
 function renameProject(id){
@@ -2407,7 +2458,7 @@ function batchDelete(){
   applyProjectPanelCollapsedState();
   renderProjects();
   renderAll();
-  setTimeout(fitCanvas,100);
+  if(!didRestoreProjectUi)setTimeout(fitCanvas,100);
   scheduleUiPrefsSync();
   window.addEventListener('resize',updateZoomCtrlPos);
   supabase.auth.onAuthStateChange((_event, session) => {
