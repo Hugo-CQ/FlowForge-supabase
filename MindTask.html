@@ -1946,26 +1946,28 @@ function fitCanvas(){
 }
 function centerRoot(){
   let wrap=document.getElementById('canvasWrap');
-  if(branchHighlightHits.size>0){
-    let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
-    branchHighlightHits.forEach(id=>{
-      let p=nodePositions[id];
-      if(!p)return;
-      minX=Math.min(minX,p.x);minY=Math.min(minY,p.y);
-      maxX=Math.max(maxX,p.x+p.w);maxY=Math.max(maxY,p.y+p.h);
-    });
-    if(isFinite(minX)){
-      let cx=(minX+maxX)/2,cy=(minY+maxY)/2;
-      panX=wrap.clientWidth/2-cx*zoom;
-      panY=wrap.clientHeight/2-cy*zoom;
+  let ww=wrap.clientWidth,wh=wrap.clientHeight;
+  if(selectedId){
+    let p=nodePositions[selectedId];
+    if(p){
+      let cx=p.x+p.w/2,cy=p.y+p.h/2;
+      panX=ww/2-cx*zoom;
+      panY=wh/2-cy*zoom;
       updateCanvasTransform();
       return;
     }
   }
-  let rp=nodePositions[curProj().root.id];
-  if(!rp)return;
-  panX=wrap.clientWidth/2-(rp.x+rp.w/2)*zoom;
-  panY=wrap.clientHeight/2-(rp.y+rp.h/2)*zoom;
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  Object.keys(nodePositions).forEach(id=>{
+    let p=nodePositions[id];
+    if(!p)return;
+    minX=Math.min(minX,p.x);minY=Math.min(minY,p.y);
+    maxX=Math.max(maxX,p.x+p.w);maxY=Math.max(maxY,p.y+p.h);
+  });
+  if(!isFinite(minX))return;
+  let cx=(minX+maxX)/2,cy=(minY+maxY)/2;
+  panX=ww/2-cx*zoom;
+  panY=wh/2-cy*zoom;
   updateCanvasTransform();
 }
 function expandAll(){walkAll(curProj().root,n=>{n.collapsed=false});save();renderAllStable();setTimeout(fitCanvas,50)}
