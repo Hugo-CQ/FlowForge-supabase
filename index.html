@@ -122,8 +122,8 @@
 
       <div class="option-row">
         <label>
-          <input id="rememberMe" type="checkbox" />
-          记住我
+          <input id="rememberMe" type="checkbox" checked />
+          记住我（关闭浏览器后仍保持登录）
         </label>
         <label>
           <input id="showPassword" type="checkbox" />
@@ -141,6 +141,7 @@
     (async function initLoginPage() {
     const AFTER_LOGIN = './MindTask.html';
     const REMEMBER_EMAIL_KEY = 'flowforge_remember_email';
+    const AUTH_SCOPE_KEY = 'flowforge_auth_storage';
 
     const msgEl = document.getElementById('msg');
 
@@ -178,10 +179,15 @@
     }
 
     let supabase;
+    let prepareLoginAuthScope;
     try {
       const mod = await import('./supabase-client.js');
       supabase = mod.supabase;
+      prepareLoginAuthScope = mod.prepareLoginAuthScope;
       if (!supabase) throw new Error('supabase-client 未导出 supabase');
+      if (typeof prepareLoginAuthScope !== 'function') {
+        throw new Error('supabase-client 未导出 prepareLoginAuthScope');
+      }
     } catch (e) {
       console.error(e);
       setErr('加载登录依赖', briefFromError(e, String(e?.message || e)));
@@ -201,11 +207,11 @@
 
     function loadRememberedEmail() {
       if (!rememberMeEl) return;
+      const scope = localStorage.getItem(AUTH_SCOPE_KEY);
+      if (scope === 'session') rememberMeEl.checked = false;
+      else if (scope === 'persist') rememberMeEl.checked = true;
       const rememberedEmail = localStorage.getItem(REMEMBER_EMAIL_KEY);
-      if (rememberedEmail) {
-        emailEl.value = rememberedEmail;
-        rememberMeEl.checked = true;
-      }
+      if (rememberedEmail) emailEl.value = rememberedEmail;
     }
 
     try {
@@ -234,6 +240,9 @@
 
           setMsg('正在连接服务器…');
 
+          const usePersist = rememberMeEl?.checked !== false;
+          prepareLoginAuthScope(usePersist);
+
           const { error } = await supabase.auth.signInWithPassword({
             email,
             password
@@ -247,7 +256,7 @@
             return;
           }
 
-          if (rememberMeEl?.checked) {
+          if (usePersist) {
             localStorage.setItem(REMEMBER_EMAIL_KEY, email);
           } else {
             localStorage.removeItem(REMEMBER_EMAIL_KEY);
