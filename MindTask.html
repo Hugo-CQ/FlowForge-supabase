@@ -1663,11 +1663,11 @@ function onZoom(e){
   let mx=e.clientX-rect.left, my=e.clientY-rect.top;
   let dz;
   if(e.ctrlKey){
-    dz=-e.deltaY*0.009;
-    dz=Math.max(-0.04,Math.min(0.04,dz));
+    dz=-e.deltaY*0.0018;
+    dz=Math.max(-0.008,Math.min(0.008,dz));
   }else if(e.deltaMode===0){
-    dz=-e.deltaY*0.0014;
-    dz=Math.max(-0.055,Math.min(0.055,dz));
+    dz=-e.deltaY*0.00028;
+    dz=Math.max(-0.011,Math.min(0.011,dz));
   }else{
     dz=e.deltaY>0?-0.1:0.1;
     if(e.deltaMode===1)dz*=12;
