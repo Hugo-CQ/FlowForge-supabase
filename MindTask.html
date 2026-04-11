@@ -435,6 +435,66 @@ function debounceSaveToCloud(){
   clearTimeout(cloudDebounceTimer);
   cloudDebounceTimer=setTimeout(()=>{syncToCloud();},CLOUD_DEBOUNCE_MS);
 }
+function collectUiState(){
+  let si=document.getElementById('searchInput');
+  return{
+    v:1,
+    statusFilters:[...statusFilters],
+    priorityFilters:[...priorityFilters],
+    statusLinkParent:!!document.getElementById('statusLinkParentCb')?.checked,
+    priorityLinkParent:!!document.getElementById('priorityLinkParentCb')?.checked,
+    viewMask:{
+      todo:!!document.getElementById('viewMaskTodoCb')?.checked,
+      done:!!document.getElementById('viewMaskDoneCb')?.checked,
+      stopped:!!document.getElementById('viewMaskStoppedCb')?.checked
+    },
+    calMode,calViewYear,calViewMonth,calPickDateStr,
+    zoom,panX,panY,
+    searchQuery:si?si.value:''
+  };
+}
+function applyUiState(raw){
+  if(!raw||typeof raw!=='object')return;
+  let vm=raw.viewMask||{};
+  let elT=document.getElementById('viewMaskTodoCb');
+  let elD=document.getElementById('viewMaskDoneCb');
+  let elS=document.getElementById('viewMaskStoppedCb');
+  if(elT)elT.checked=!!vm.todo;
+  if(elD)elD.checked=!!vm.done;
+  if(elS)elS.checked=!!vm.stopped;
+  let sf=new Set(Array.isArray(raw.statusFilters)?raw.statusFilters:[]);
+  let pf=new Set(Array.isArray(raw.priorityFilters)?raw.priorityFilters:[]);
+  document.querySelectorAll('#statusFilterDrop input.filter-value').forEach(cb=>{cb.checked=sf.has(cb.value);});
+  document.querySelectorAll('#priorityFilterDrop input.filter-value').forEach(cb=>{cb.checked=pf.has(cb.value);});
+  let sl=document.getElementById('statusLinkParentCb');
+  let pl=document.getElementById('priorityLinkParentCb');
+  if(sl)sl.checked=!!raw.statusLinkParent;
+  if(pl)pl.checked=!!raw.priorityLinkParent;
+  if(raw.calMode==='month'||raw.calMode==='week'||raw.calMode==='list')calMode=raw.calMode;
+  if(typeof raw.calViewYear==='number'&&isFinite(raw.calViewYear))calViewYear=raw.calViewYear;
+  if(typeof raw.calViewMonth==='number'&&isFinite(raw.calViewMonth))calViewMonth=raw.calViewMonth;
+  if(typeof raw.calPickDateStr==='string')calPickDateStr=raw.calPickDateStr;
+  if(typeof raw.zoom==='number'&&isFinite(raw.zoom))zoom=Math.max(0.2,Math.min(3,raw.zoom));
+  if(typeof raw.panX==='number'&&isFinite(raw.panX))panX=raw.panX;
+  if(typeof raw.panY==='number'&&isFinite(raw.panY))panY=raw.panY;
+  let si=document.getElementById('searchInput');
+  if(si&&typeof raw.searchQuery==='string')si.value=raw.searchQuery;
+  applyFilters();
+  updateViewMaskButton();
+  if(raw.searchQuery&&String(raw.searchQuery).trim())onSearch();
+  else{
+    searchHits.clear();
+    let res=document.getElementById('searchResults');
+    if(res)res.style.display='none';
+    renderAll();
+  }
+  updateCanvasTransform();
+}
+function scheduleUiPrefsSync(){
+  if(isBootstrapping)return;
+  try{localStorage.setItem('mt_ui_prefs',JSON.stringify(collectUiState()));}catch(e){}
+  debounceSaveToCloud();
+}
 function setSyncStatusUi(code){
   let el=document.getElementById('syncStatusText');
   if(!el)return;
@@ -464,6 +524,7 @@ async function syncToCloud(){
       user_id:session.user.id,
       projects:projects,
       cur_proj_id:curProjId,
+      ui_prefs:collectUiState(),
       updated_at:new Date().toISOString()
     };
     let { error }=await supabase.from(MINDTASK_STATE_TABLE).upsert(payload,{onConflict:'user_id'});
@@ -523,6 +584,10 @@ async function bootstrapFromCloud(user){
     console.error(error);
     loadProjectsFromLocalStorage();
     applyLocalStoragePrefs();
+    try{
+      let u=localStorage.getItem('mt_ui_prefs');
+      if(u)applyUiState(JSON.parse(u));
+    }catch(e){}
     setSyncStatusUi('error');
     showSyncToast('读取云端失败，已使用本地缓存');
     isBootstrapping=false;
@@ -563,6 +628,15 @@ async function bootstrapFromCloud(user){
   }
 
   applyLocalStoragePrefs();
+
+  if(row&&row.ui_prefs&&typeof row.ui_prefs==='object'){
+    applyUiState(row.ui_prefs);
+  }else{
+    try{
+      let u=localStorage.getItem('mt_ui_prefs');
+      if(u)applyUiState(JSON.parse(u));
+    }catch(e){}
+  }
 
   if(needsFirstUpload){
     await syncToCloud();
@@ -1158,6 +1232,10 @@ function updateCanvasTransform(){
   document.getElementById('canvas').style.transform='translate('+panX+'px,'+panY+'px) scale('+zoom+')';
   document.getElementById('zoomLabel').textContent=Math.round(zoom*100)+'%';
   updateBackgroundTransform();
+  if(!isBootstrapping){
+    clearTimeout(updateCanvasTransform._schedUi);
+    updateCanvasTransform._schedUi=setTimeout(()=>scheduleUiPrefsSync(),1200);
+  }
 }
 function updateBackgroundTransform(){
   let wrap=document.getElementById('canvasWrap');
@@ -1415,7 +1493,7 @@ function toggleCalendarDrawer(){
   if(btn)btn.classList.add('active');
   renderCalendarPanel();
 }
-function setCalMode(mode){calMode=mode;renderCalendarPanel()}
+function setCalMode(mode){calMode=mode;renderCalendarPanel();scheduleUiPrefsSync()}
 function getWeekStart(dateStr){
   let d=new Date(dateStr+'T00:00:00');
   let day=d.getDay();
@@ -1435,12 +1513,14 @@ function calShiftPeriod(delta){
     calPickDateStr=fmtDateStr(ws.getFullYear(),ws.getMonth(),ws.getDate());
   }
   renderCalendarPanel();
+  scheduleUiPrefsSync();
 }
 function calGoToday(){
   let t=new Date();calViewYear=t.getFullYear();calViewMonth=t.getMonth();calPickDateStr=todayISO();
   renderCalendarPanel();
+  scheduleUiPrefsSync();
 }
-function calSelectDay(dateStr){calPickDateStr=dateStr;renderCalendarPanel()}
+function calSelectDay(dateStr){calPickDateStr=dateStr;renderCalendarPanel();scheduleUiPrefsSync()}
 function buildNodeItem(n,tIso){
   let btn=document.createElement('button');btn.type='button';btn.className='cal-list-item';
   /* TODO: drag-to-calendar disabled — conflicts with click-to-navigate
@@ -1874,6 +1954,7 @@ function updateViewMaskButton(){
 function applyViewMask(){
   updateViewMaskButton();
   renderAll();
+  scheduleUiPrefsSync();
 }
 function clearViewMaskUI(){
   let t=document.getElementById('viewMaskTodoCb');
@@ -1967,6 +2048,7 @@ function applyFilters(){
   if(statusFilters.size&&statusLink)addFilterAncestors(root,directIds);
   if(priorityFilters.size&&priorityLink)addFilterAncestors(root,directIds);
   renderAll();
+  scheduleUiPrefsSync();
 }
 
 /* ===== SEARCH ===== */
@@ -1974,7 +2056,7 @@ function onSearch(){
   let q=document.getElementById('searchInput').value.trim().toLowerCase();
   let res=document.getElementById('searchResults');
   searchHits.clear();
-  if(!q){res.style.display='none';renderAll();return}
+  if(!q){res.style.display='none';renderAll();scheduleUiPrefsSync();return}
   let hits=[];
   walkAll(curProj().root,n=>{
     if(n.title.toLowerCase().includes(q)||n.note.toLowerCase().includes(q)){
@@ -1995,7 +2077,7 @@ function onSearch(){
   ancestors.forEach(id=>searchHits.add(id));
   
   res.innerHTML='';
-  if(hits.length===0){res.style.display='none';renderAll();return}
+  if(hits.length===0){res.style.display='none';renderAll();scheduleUiPrefsSync();return}
   hits.slice(0,10).forEach(n=>{
     let d=document.createElement('div');d.className='sr-item';
     let t=document.createElement('div');t.textContent=n.title;t.style.fontWeight='600';t.style.fontSize='13px';
@@ -2021,6 +2103,7 @@ function onSearch(){
   });
   res.style.display='block';
   renderAll();
+  scheduleUiPrefsSync();
 }
 
 /* ===== MENU ===== */
@@ -2305,6 +2388,7 @@ function batchDelete(){
   renderProjects();
   renderAll();
   setTimeout(fitCanvas,100);
+  scheduleUiPrefsSync();
   window.addEventListener('resize',updateZoomCtrlPos);
   supabase.auth.onAuthStateChange((_event, session) => {
     if(!session)window.location.href=AFTER_LOGIN;
