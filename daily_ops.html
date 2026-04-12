@@ -1,0 +1,2232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Daily Ops 工作记录器</title>
+  <style>
+    :root {
+      --nav-bg: #1f1f1f;
+      --nav-border: #2d2d2d;
+      --bg: #f3f6fa;
+      --card: #ffffff;
+      --text: #20242a;
+      --subtext: #66707d;
+      --border: #d9e0e8;
+      --shadow: 0 8px 22px rgba(15, 23, 42, 0.08);
+      --green: #2ca36c;
+      --blue: #3b82f6;
+      --orange: #f97316;
+      --neutral: #8b7f74;
+      --danger: #d9485f;
+      --accent: #0078d4;
+      --tile-radius: 12px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    button, input, select, textarea {
+      font: inherit;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 248px 1fr;
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      background: linear-gradient(180deg, #202020 0%, #171717 100%);
+      color: #f2f2f2;
+      padding: 22px 16px;
+      border-right: 1px solid var(--nav-border);
+      position: sticky;
+      top: 0;
+      height: 100vh;
+    }
+
+    .brand {
+      display: grid;
+      gap: 4px;
+      padding: 10px 12px 18px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      margin-bottom: 16px;
+    }
+
+    .brand-title {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+    }
+
+    .brand-sub {
+      font-size: 12px;
+      color: rgba(255,255,255,0.62);
+      line-height: 1.5;
+    }
+
+    .nav {
+      display: grid;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .nav-btn {
+      width: 100%;
+      border: 1px solid transparent;
+      background: transparent;
+      color: #f3f3f3;
+      text-align: left;
+      padding: 12px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: 0.18s ease;
+    }
+
+    .nav-btn:hover {
+      background: rgba(255,255,255,0.08);
+      border-color: rgba(255,255,255,0.08);
+    }
+
+    .nav-btn.active {
+      background: rgba(0,120,212,0.18);
+      border-color: rgba(0,120,212,0.38);
+      color: #fff;
+    }
+
+    .sidebar-footer {
+      position: absolute;
+      left: 16px;
+      right: 16px;
+      bottom: 18px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      font-size: 12px;
+      color: rgba(255,255,255,0.72);
+      line-height: 1.6;
+    }
+
+    .main {
+      padding: 26px;
+      min-width: 0;
+    }
+
+    .page-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .page-title {
+      font-size: 28px;
+      font-weight: 700;
+      margin: 0 0 6px;
+    }
+
+    .page-sub {
+      color: var(--subtext);
+      font-size: 14px;
+      line-height: 1.6;
+      margin: 0;
+    }
+
+    .toolbar, .inline-actions, .filter-row, .stack, .stats-grid, .week-grid, .data-grid {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .toolbar {
+      align-items: center;
+    }
+
+    .btn {
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text);
+      border-radius: 10px;
+      padding: 10px 14px;
+      cursor: pointer;
+      transition: 0.16s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(15,23,42,0.07);
+    }
+
+    .btn.primary {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    .btn.ghost {
+      background: transparent;
+    }
+
+    .btn.danger {
+      background: #fff5f6;
+      color: var(--danger);
+      border-color: #f4c6ce;
+    }
+
+    .btn.small {
+      padding: 8px 11px;
+      font-size: 13px;
+      border-radius: 9px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--tile-radius);
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+
+    .card.soft {
+      box-shadow: none;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .today-layout {
+      display: grid;
+      grid-template-columns: 1.25fr 0.95fr;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .left-col, .right-col {
+      display: grid;
+      gap: 16px;
+      align-content: start;
+    }
+
+    .section-title {
+      margin: 0 0 12px;
+      font-size: 16px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .section-title .meta {
+      font-weight: 500;
+      color: var(--subtext);
+      font-size: 12px;
+    }
+
+    .tile-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+
+    .tile-label::before {
+      content: "";
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      background: currentColor;
+      display: inline-block;
+      opacity: 0.9;
+    }
+
+    .progress-tile { color: var(--green); }
+    .blocker-tile { color: var(--neutral); }
+    .risk-tile { color: var(--orange); }
+    .top3-tile { color: var(--blue); }
+
+    .field-group {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .field-group label {
+      font-size: 13px;
+      color: var(--subtext);
+      font-weight: 600;
+    }
+
+    .input, .textarea, .select {
+      width: 100%;
+      border: 1px solid var(--border);
+      background: #fff;
+      border-radius: 10px;
+      padding: 11px 12px;
+      color: var(--text);
+      outline: none;
+      transition: 0.16s ease;
+    }
+
+    .input:focus, .textarea:focus, .select:focus {
+      border-color: rgba(0,120,212,0.62);
+      box-shadow: 0 0 0 4px rgba(0,120,212,0.08);
+    }
+
+    .textarea {
+      min-height: 108px;
+      resize: vertical;
+      line-height: 1.6;
+    }
+
+    .field-row {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .mini-grid {
+      display: grid;
+      gap: 10px;
+    }
+
+    .list-editor {
+      display: grid;
+      gap: 10px;
+    }
+
+    .list-row {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      background: #fff;
+      display: grid;
+      gap: 10px;
+    }
+
+    .list-row.compact {
+      grid-template-columns: 1fr auto;
+      align-items: start;
+      gap: 10px;
+    }
+
+    .list-row .row-main {
+      display: grid;
+      gap: 10px;
+    }
+
+    .empty {
+      border: 1px dashed #cdd6e0;
+      border-radius: 12px;
+      padding: 16px;
+      color: var(--subtext);
+      background: #fbfcfe;
+      line-height: 1.7;
+    }
+
+    .pill, .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--subtext);
+    }
+
+    .tag-wrap {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      min-height: 32px;
+    }
+
+    .tag button {
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+      color: #8a96a5;
+      padding: 0;
+      font-size: 12px;
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: 1fr 360px;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .history-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .history-card {
+      display: grid;
+      gap: 10px;
+      cursor: pointer;
+      transition: 0.16s ease;
+    }
+
+    .history-card:hover {
+      border-color: rgba(0,120,212,0.38);
+      transform: translateY(-1px);
+    }
+
+    .history-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .history-title {
+      font-size: 17px;
+      font-weight: 700;
+      margin: 0;
+    }
+
+    .history-sub {
+      color: var(--subtext);
+      font-size: 13px;
+    }
+
+    .summary-list {
+      display: grid;
+      gap: 6px;
+      color: #404957;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .timeline {
+      position: relative;
+      display: grid;
+      gap: 12px;
+      padding-left: 18px;
+    }
+
+    .timeline::before {
+      content: "";
+      position: absolute;
+      left: 6px;
+      top: 6px;
+      bottom: 6px;
+      width: 2px;
+      background: #d7dfe7;
+    }
+
+    .timeline-item {
+      position: relative;
+    }
+
+    .timeline-item::before {
+      content: "";
+      position: absolute;
+      left: -17px;
+      top: 18px;
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
+      background: var(--accent);
+    }
+
+    .detail-panel {
+      position: sticky;
+      top: 26px;
+    }
+
+    .detail-block {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .detail-block h4 {
+      margin: 0;
+      font-size: 14px;
+      color: var(--subtext);
+    }
+
+    .detail-block ul {
+      margin: 0;
+      padding-left: 18px;
+      line-height: 1.7;
+    }
+
+    .stat-card {
+      padding: 16px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .stat-kicker {
+      font-size: 12px;
+      color: var(--subtext);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+
+    .stat-value {
+      font-size: 26px;
+      font-weight: 700;
+    }
+
+    .week-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .week-item {
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #fff;
+    }
+
+    .ai-result {
+      min-height: 180px;
+      white-space: pre-wrap;
+      line-height: 1.7;
+      color: #344052;
+    }
+
+    .scene-list {
+      display: grid;
+      gap: 8px;
+      align-content: start;
+    }
+
+    .scene-btn {
+      width: 100%;
+      text-align: left;
+      padding: 11px 12px;
+      border: 1px solid var(--border);
+      background: #fff;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+
+    .scene-btn.active {
+      border-color: rgba(0,120,212,0.45);
+      background: rgba(0,120,212,0.05);
+    }
+
+    .hint {
+      margin-top: 6px;
+      color: var(--subtext);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .notice {
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid #cde4fb;
+      background: #f3f9ff;
+      color: #24527a;
+      line-height: 1.7;
+      margin-bottom: 16px;
+    }
+
+    .badge {
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      background: #eef4fb;
+      color: #36506a;
+    }
+
+    .badge.low { background: #ebf9f1; color: #257c50; }
+    .badge.mid { background: #fff6ea; color: #b76a1c; }
+    .badge.high { background: #fff0f2; color: #b23a4c; }
+
+    .footer-note {
+      margin-top: 20px;
+      font-size: 12px;
+      color: var(--subtext);
+      line-height: 1.7;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    @media (max-width: 1160px) {
+      .today-layout, .split, .week-grid, .data-grid {
+        grid-template-columns: 1fr !important;
+      }
+      .grid-2, .grid-3, .field-row {
+        grid-template-columns: 1fr;
+      }
+      .app {
+        grid-template-columns: 1fr;
+      }
+      .sidebar {
+        position: static;
+        height: auto;
+      }
+      .sidebar-footer {
+        position: static;
+        margin-top: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-title">Daily Ops</div>
+        <div class="brand-sub">个人每日工作推进记录器<br>轻量记录、长期回看、给 AI 留好分析接口</div>
+      </div>
+      <nav class="nav" id="nav"></nav>
+      <div class="sidebar-footer">
+        本地优先：数据默认保存在浏览器 localStorage。<br>
+        AI 调用采用前端直连方式，适合个人使用与原型验证。
+      </div>
+    </aside>
+    <main class="main" id="main"></main>
+  </div>
+
+  <input type="file" id="importFile" accept="application/json" class="hidden" />
+
+  <script>
+    const STORAGE_KEYS = {
+      records: 'daily_ops_records_v1',
+      aiConfig: 'daily_ops_ai_config_v1',
+      aiScenes: 'daily_ops_ai_scenes_v1',
+      settings: 'daily_ops_settings_v1'
+    };
+
+    const NAV_ITEMS = [
+      { id: 'today', label: '今日记录' },
+      { id: 'history', label: '历史回溯' },
+      { id: 'weekly', label: '周复盘' },
+      { id: 'ai', label: 'AI 设置' },
+      { id: 'data', label: '数据管理' }
+    ];
+
+    const state = {
+      currentView: 'today',
+      selectedDate: formatDateInput(new Date()),
+      selectedHistoryId: null,
+      historyView: 'cards',
+      selectedSceneId: null,
+      weeklyStart: getWeekStart(formatDateInput(new Date())),
+      aiOutput: { summary: '', risk: '', test: '' },
+      settings: {
+        currentDate: formatDateInput(new Date())
+      }
+    };
+
+    function uid() {
+      return 'id-' + Math.random().toString(36).slice(2, 10) + '-' + Date.now().toString(36);
+    }
+
+    function formatDateInput(date) {
+      const d = new Date(date);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
+
+    function addDays(dateStr, days) {
+      const d = new Date(dateStr + 'T00:00:00');
+      d.setDate(d.getDate() + days);
+      return formatDateInput(d);
+    }
+
+    function getWeekStart(dateStr) {
+      const d = new Date(dateStr + 'T00:00:00');
+      const day = d.getDay();
+      const diff = day === 0 ? -6 : 1 - day;
+      d.setDate(d.getDate() + diff);
+      return formatDateInput(d);
+    }
+
+    function getWeekRange(startDate) {
+      return Array.from({ length: 7 }, (_, i) => addDays(startDate, i));
+    }
+
+    function todayStr() {
+      return formatDateInput(new Date());
+    }
+
+    function timeStamp() {
+      return new Date().toISOString();
+    }
+
+    function normalizeText(s) {
+      return String(s || '').replace(/\s+/g, '').toLowerCase();
+    }
+
+    function storageBytesEstimate(obj) {
+      return new Blob([JSON.stringify(obj)]).size;
+    }
+
+    function loadJSON(key, fallback) {
+      try {
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : fallback;
+      } catch {
+        return fallback;
+      }
+    }
+
+    function saveJSON(key, value) {
+      localStorage.setItem(key, JSON.stringify(value));
+    }
+
+    function defaultAIConfig() {
+      return {
+        baseUrl: 'https://api.openai.com/v1/chat/completions',
+        apiKey: '',
+        model: 'gpt-4o-mini'
+      };
+    }
+
+    function defaultScenes() {
+      return [
+        {
+          id: uid(),
+          name: '日结整理',
+          type: '日结',
+          enabled: true,
+          systemPrompt: '你是一个 Daily Ops 整理助手。你只能基于用户输入内容进行归纳，不得编造事实，不得补充不存在的工作内容。',
+          userPromptTemplate: '请把以下碎片记录整理为四个部分：1. 今日推进结果 2. 当前阻塞 3. 风险与应对 4. 明日 Top3。原始内容：\n{{input}}\n输出要求：JSON，字段为 progress、blockers、risks、tomorrowTop3。',
+          inputScope: 'single_day',
+          outputFormat: 'json',
+          maxLength: 800,
+          rules: ['不得新增事实', '保持四段结构', '信息不足可以留空'],
+          model: 'gpt-4o-mini',
+          temperature: 0.2,
+          createdAt: timeStamp(),
+          updatedAt: timeStamp()
+        },
+        {
+          id: uid(),
+          name: '周结总结',
+          type: '周结',
+          enabled: true,
+          systemPrompt: '你是一个严谨的周复盘助手，请仅基于输入的一周 Daily Ops 数据生成总结，不得编造。',
+          userPromptTemplate: '请基于以下一周 Daily Ops 记录，输出：1. 本周主要进展 2. 本周主要阻塞 3. 本周风险提醒 4. 下周建议。原始数据：\n{{input}}',
+          inputScope: 'last_7_days',
+          outputFormat: 'markdown',
+          maxLength: 500,
+          rules: ['不得编造', '优先提炼重复问题', '不写空泛表扬'],
+          model: 'gpt-4o-mini',
+          temperature: 0.3,
+          createdAt: timeStamp(),
+          updatedAt: timeStamp()
+        },
+        {
+          id: uid(),
+          name: '风险分析',
+          type: '风险分析',
+          enabled: true,
+          systemPrompt: '你是一个风险识别助手，只能根据已有 Daily Ops 数据识别重复出现或明显存在的风险。',
+          userPromptTemplate: '请基于以下 Daily Ops 记录，识别值得关注的风险，并给出应对建议。原始数据：\n{{input}}',
+          inputScope: 'last_7_days',
+          outputFormat: 'markdown',
+          maxLength: 500,
+          rules: ['证据不足不要强行判断', '每条包含风险、依据、建议', '优先关注重复阻塞与延期'],
+          model: 'gpt-4o-mini',
+          temperature: 0.2,
+          createdAt: timeStamp(),
+          updatedAt: timeStamp()
+        }
+      ];
+    }
+
+    function sampleRecords() {
+      const today = todayStr();
+      const d1 = addDays(today, -1);
+      const d2 = addDays(today, -2);
+      const d3 = addDays(today, -3);
+      const d4 = addDays(today, -4);
+      return [
+        {
+          id: uid(),
+          date: d4,
+          project: 'Daily Ops 网页',
+          tags: ['产品设计', '结构梳理'],
+          progress: ['明确核心定位是个人工作推进记录器', '确认需要“快速填写 + 回溯 + AI 分析”三条主线'],
+          blockers: [{ text: '还没决定首页是强表单还是轻卡片', owner: '自己', deadline: addDays(d4, 1) }],
+          risks: [{ text: '如果一开始做成日报系统，使用负担会很重', action: '弱化汇报感，强调个人留痕', level: '中' }],
+          tomorrowTop3: ['补齐页面信息架构', '设计周复盘入口', '整理 AI 场景配置'],
+          mood: '一般',
+          confidence: 3,
+          createdAt: timeStamp(),
+          updatedAt: timeStamp()
+        },
+        {
+          id: uid(),
+          date: d3,
+          project: 'Daily Ops 网页',
+          tags: ['页面设计', 'AI'],
+          progress: ['完成页面结构草图', '明确需要数据管理页与 AI 设置页'],
+          blockers: [{ text: 'API 接口协议未定，测试链路暂时无法打通', owner: '自己', deadline: addDays(d3, 2) }],
+          risks: [{ text: 'AI 场景如果写死在代码里，后续很难调整', action: '单独做场景配置结构', level: '高' }],
+          tomorrowTop3: ['做单文件网页方案', '补齐历史回溯筛选', '设计导入导出'],
+          mood: '吃力',
+          confidence: 2,
+          createdAt: timeStamp(),
+          updatedAt: timeStamp()
+        },
+        {
+          id: uid(),
+          date: d2,
+          project: 'Daily Ops 网页',
+          tags: ['前端', '本地存储'],
+          progress: ['梳理 Daily Ops 数据结构', '定义 blockers 与 risks 的结构化字段'],
+          blockers: [{ text: '历史视图需要卡片与时间线两种模式，交互量上升', owner: '自己', deadline: addDays(d2, 2) }],
+          risks: [{ text: '字段过于松散会导致后续周总结质量下降', action: '先收敛核心字段，后续再扩展', level: '中' }],
+          tomorrowTop3: ['做今日记录页', '加标签输入', '加复制昨日逻辑'],
+          mood: '一般',
+          confidence: 4,
+          createdAt: timeStamp(),
+          updatedAt: timeStamp()
+        },
+        {
+          id: uid(),
+          date: d1,
+          project: 'Daily Ops 网页',
+          tags: ['前端', '交互'],
+          progress: ['完成今日记录页初步交互', '加入复制昨日与继承昨日 Top3 方案'],
+          blockers: [{ text: '还未补齐导出 Markdown 周报', owner: '自己', deadline: today }],
+          risks: [{ text: '如果保存反馈不明显，长期使用时容易造成不确定感', action: '增加 toast 与状态反馈', level: '低' }],
+          tomorrowTop3: ['完成历史回溯页', '加入周复盘统计', '补齐 AI 设置'],
+          mood: '顺利',
+          confidence: 4,
+          createdAt: timeStamp(),
+          updatedAt: timeStamp()
+        },
+        {
+          id: uid(),
+          date: today,
+          project: 'Daily Ops 网页',
+          tags: ['产品设计', '前端', 'AI'],
+          progress: ['完成首页信息架构设计', '明确历史回溯页需要支持时间线视图', '梳理 AI 场景配置结构'],
+          blockers: [{ text: 'API 接口协议尚未完全确定', owner: '自己', deadline: addDays(today, 1) }],
+          risks: [{ text: '如果数据结构过于松散，后续 AI 总结质量会下降', action: '优先结构化 blockers 和 risks', level: '中' }],
+          tomorrowTop3: ['完成单文件网页初版', '加入本地存储', '加入 AI 设置页'],
+          mood: '一般',
+          confidence: 4,
+          createdAt: timeStamp(),
+          updatedAt: timeStamp()
+        }
+      ];
+    }
+
+    const store = {
+      records: loadJSON(STORAGE_KEYS.records, null),
+      aiConfig: loadJSON(STORAGE_KEYS.aiConfig, defaultAIConfig()),
+      aiScenes: loadJSON(STORAGE_KEYS.aiScenes, null),
+      settings: loadJSON(STORAGE_KEYS.settings, state.settings)
+    };
+
+    if (!Array.isArray(store.records) || store.records.length === 0) {
+      store.records = sampleRecords();
+      saveJSON(STORAGE_KEYS.records, store.records);
+    }
+    if (!Array.isArray(store.aiScenes) || store.aiScenes.length === 0) {
+      store.aiScenes = defaultScenes();
+      saveJSON(STORAGE_KEYS.aiScenes, store.aiScenes);
+    }
+    state.settings = { ...state.settings, ...store.settings };
+    state.selectedSceneId = store.aiScenes[0]?.id || null;
+    state.selectedHistoryId = [...store.records].sort((a, b) => b.date.localeCompare(a.date))[0]?.id || null;
+
+    function persistAll() {
+      saveJSON(STORAGE_KEYS.records, store.records);
+      saveJSON(STORAGE_KEYS.aiConfig, store.aiConfig);
+      saveJSON(STORAGE_KEYS.aiScenes, store.aiScenes);
+      saveJSON(STORAGE_KEYS.settings, state.settings);
+    }
+
+    function toast(message) {
+      const el = document.createElement('div');
+      el.textContent = message;
+      el.style.position = 'fixed';
+      el.style.right = '20px';
+      el.style.bottom = '20px';
+      el.style.padding = '12px 14px';
+      el.style.background = '#1f2f44';
+      el.style.color = '#fff';
+      el.style.borderRadius = '12px';
+      el.style.boxShadow = '0 12px 24px rgba(0,0,0,0.18)';
+      el.style.zIndex = '9999';
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 2200);
+    }
+
+    function renderNav() {
+      const nav = document.getElementById('nav');
+      nav.innerHTML = NAV_ITEMS.map(item => `
+        <button class="nav-btn ${state.currentView === item.id ? 'active' : ''}" data-nav="${item.id}">${item.label}</button>
+      `).join('');
+    }
+
+    function getRecordByDate(date) {
+      return store.records.find(r => r.date === date) || null;
+    }
+
+    function getRecordById(id) {
+      return store.records.find(r => r.id === id) || null;
+    }
+
+    function createEmptyRecord(date) {
+      return {
+        id: uid(),
+        date,
+        project: '',
+        tags: [],
+        progress: [''],
+        blockers: [{ text: '', owner: '', deadline: '' }],
+        risks: [{ text: '', action: '', level: '中' }],
+        tomorrowTop3: ['', '', ''],
+        mood: '一般',
+        confidence: 3,
+        createdAt: timeStamp(),
+        updatedAt: timeStamp()
+      };
+    }
+
+    function cloneRecord(record, newDate = record.date) {
+      return JSON.parse(JSON.stringify({ ...record, id: uid(), date: newDate, createdAt: timeStamp(), updatedAt: timeStamp() }));
+    }
+
+    function ensureTodayForm() {
+      const dateInput = document.getElementById('recordDate');
+      if (dateInput) {
+        dateInput.value = state.settings.currentDate;
+      }
+    }
+
+    function getTodayDraft() {
+      const existing = getRecordByDate(state.settings.currentDate);
+      return existing ? JSON.parse(JSON.stringify(existing)) : createEmptyRecord(state.settings.currentDate);
+    }
+
+    function buildTagHTML(tags) {
+      if (!tags || !tags.length) return '<span class="pill">暂无标签</span>';
+      return tags.map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join('');
+    }
+
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function renderTodayPage() {
+      const draft = getTodayDraft();
+      const existing = getRecordByDate(state.settings.currentDate);
+      return `
+        <div class="page-head">
+          <div>
+            <h1 class="page-title">今日记录</h1>
+            <p class="page-sub">打开即写，尽量像打草稿一样输入。保存后可在历史页回看，也可在周复盘中聚合分析。</p>
+          </div>
+          <div class="toolbar">
+            <button class="btn" data-action="new-today">新建今日记录</button>
+            <button class="btn" data-action="copy-yesterday">复制昨日内容</button>
+            <button class="btn" data-action="inherit-top3">继承昨日 Top3</button>
+            <button class="btn primary" data-action="save-today">保存记录</button>
+            <button class="btn" data-action="ai-organize">AI 整理</button>
+          </div>
+        </div>
+
+        ${existing ? `<div class="notice">当前日期 <strong>${escapeHtml(state.settings.currentDate)}</strong> 已存在记录。你现在看到的是可编辑版本，点击“保存记录”会更新这一天的内容。</div>` : ''}
+
+        <div class="today-layout">
+          <div class="left-col">
+            <div class="card">
+              <h3 class="section-title">基础信息 <span class="meta">先确定日期、项目、标签与状态</span></h3>
+              <div class="field-row">
+                <div class="field-group">
+                  <label>记录日期</label>
+                  <input id="recordDate" class="input" type="date" value="${escapeHtml(draft.date)}" />
+                </div>
+                <div class="field-group">
+                  <label>所属项目</label>
+                  <input id="projectInput" class="input" type="text" placeholder="例如：Daily Ops 网页" value="${escapeHtml(draft.project)}" />
+                </div>
+                <div class="field-group">
+                  <label>今日状态</label>
+                  <select id="moodInput" class="select">
+                    ${['顺利', '一般', '吃力'].map(v => `<option value="${v}" ${draft.mood === v ? 'selected' : ''}>${v}</option>`).join('')}
+                  </select>
+                </div>
+                <div class="field-group">
+                  <label>信心值（1~5）</label>
+                  <select id="confidenceInput" class="select">
+                    ${[1,2,3,4,5].map(v => `<option value="${v}" ${String(draft.confidence) === String(v) ? 'selected' : ''}>${v}</option>`).join('')}
+                  </select>
+                </div>
+              </div>
+              <div class="field-group">
+                <label>标签</label>
+                <div class="inline-actions">
+                  <input id="tagInput" class="input" type="text" placeholder="输入标签后点击添加，例如：前端、AI、排查" />
+                  <button class="btn small" data-action="add-tag">添加标签</button>
+                </div>
+                <div class="tag-wrap" id="tagWrap">
+                  ${draft.tags.map((tag, idx) => `<span class="tag">${escapeHtml(tag)} <button data-action="remove-tag-dom" data-index="${idx}">✕</button></span>`).join('') || '<span class="pill">还没有标签</span>'}
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="tile-label progress-tile">今日推进结果</div>
+              <div class="list-editor" id="progressList">
+                ${renderSimpleRows(draft.progress, 'progress')}
+              </div>
+              <div class="inline-actions">
+                <button class="btn small" data-action="add-progress">新增一条</button>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="tile-label blocker-tile">当前阻塞</div>
+              <div class="list-editor" id="blockerList">
+                ${renderBlockerRows(draft.blockers)}
+              </div>
+              <div class="inline-actions">
+                <button class="btn small" data-action="add-blocker">新增一条</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="right-col">
+            <div class="card">
+              <div class="tile-label risk-tile">风险与应对</div>
+              <div class="list-editor" id="riskList">
+                ${renderRiskRows(draft.risks)}
+              </div>
+              <div class="inline-actions">
+                <button class="btn small" data-action="add-risk">新增一条</button>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="tile-label top3-tile">明日 Top3</div>
+              <div class="list-editor" id="top3List">
+                ${renderTop3Rows(draft.tomorrowTop3)}
+              </div>
+              <div class="hint">最多 3 项。建议写成明确动作，方便第二天继承与复盘。</div>
+            </div>
+
+            <div class="card">
+              <h3 class="section-title">极简输入模式 <span class="meta">随手写碎片，交给 AI 整理</span></h3>
+              <div class="field-group">
+                <label>随手记，AI 帮你整理</label>
+                <textarea id="quickNote" class="textarea" placeholder="例如：今天把首页框架搭出来了，历史页还没做完，阻塞是 API 协议没定，明天先补本地存储和周复盘。"></textarea>
+              </div>
+              <div class="inline-actions">
+                <button class="btn" data-action="ai-organize">整理成 Daily Ops</button>
+              </div>
+              <div class="hint">需先在 AI 设置中填写 API。若本地 file 协议下跨域受限，可改用本地静态服务器打开。</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="footer-note">保存逻辑：若所选日期已有记录则更新，没有则新建。复制昨日会整体复制到当前日期，继承昨日 Top3 只带入昨天的计划项。</div>
+      `;
+    }
+
+    function renderSimpleRows(items, type) {
+      const safeItems = items && items.length ? items : [''];
+      return safeItems.map((item, index) => `
+        <div class="list-row compact">
+          <div class="row-main">
+            <input class="input simple-item" data-type="${type}" data-index="${index}" type="text" placeholder="输入一条要点" value="${escapeHtml(item)}" />
+          </div>
+          <button class="btn small danger" data-action="remove-simple" data-type="${type}" data-index="${index}">删除</button>
+        </div>
+      `).join('');
+    }
+
+    function renderBlockerRows(items) {
+      const safeItems = items && items.length ? items : [{ text: '', owner: '', deadline: '' }];
+      return safeItems.map((item, index) => `
+        <div class="list-row">
+          <div class="field-group">
+            <label>阻塞描述</label>
+            <input class="input blocker-text" data-index="${index}" type="text" placeholder="例如：等待接口协议确认" value="${escapeHtml(item.text)}" />
+          </div>
+          <div class="grid-2">
+            <div class="field-group">
+              <label>需要谁</label>
+              <input class="input blocker-owner" data-index="${index}" type="text" placeholder="例如：自己 / 产品 / 开发同学" value="${escapeHtml(item.owner)}" />
+            </div>
+            <div class="field-group">
+              <label>截止时间</label>
+              <input class="input blocker-deadline" data-index="${index}" type="date" value="${escapeHtml(item.deadline || '')}" />
+            </div>
+          </div>
+          <div><button class="btn small danger" data-action="remove-blocker" data-index="${index}">删除</button></div>
+        </div>
+      `).join('');
+    }
+
+    function renderRiskRows(items) {
+      const safeItems = items && items.length ? items : [{ text: '', action: '', level: '中' }];
+      return safeItems.map((item, index) => `
+        <div class="list-row">
+          <div class="field-group">
+            <label>风险描述</label>
+            <input class="input risk-text" data-index="${index}" type="text" placeholder="例如：字段太松散会影响周总结质量" value="${escapeHtml(item.text)}" />
+          </div>
+          <div class="field-group">
+            <label>应对动作</label>
+            <input class="input risk-action" data-index="${index}" type="text" placeholder="例如：优先结构化 blockers 和 risks" value="${escapeHtml(item.action)}" />
+          </div>
+          <div class="grid-2">
+            <div class="field-group">
+              <label>风险等级</label>
+              <select class="select risk-level" data-index="${index}">
+                ${['低', '中', '高'].map(v => `<option value="${v}" ${item.level === v ? 'selected' : ''}>${v}</option>`).join('')}
+              </select>
+            </div>
+            <div class="inline-actions" style="align-items:end;">
+              <button class="btn small danger" data-action="remove-risk" data-index="${index}">删除</button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderTop3Rows(items) {
+      const safeItems = Array.from({ length: 3 }, (_, i) => items?.[i] || '');
+      return safeItems.map((item, index) => `
+        <div class="list-row compact">
+          <div class="row-main">
+            <input class="input top3-item" data-index="${index}" type="text" placeholder="第 ${index + 1} 项" value="${escapeHtml(item)}" />
+          </div>
+          <span class="pill">${index + 1}/3</span>
+        </div>
+      `).join('');
+    }
+
+    function historyRecordsFiltered() {
+      const start = document.getElementById('historyStart')?.value || '';
+      const end = document.getElementById('historyEnd')?.value || '';
+      const project = document.getElementById('historyProject')?.value || '';
+      const tag = (document.getElementById('historyTag')?.value || '').trim();
+      const onlyBlockers = document.getElementById('onlyBlockers')?.checked || false;
+      const onlyRisks = document.getElementById('onlyRisks')?.checked || false;
+      return [...store.records]
+        .filter(record => !start || record.date >= start)
+        .filter(record => !end || record.date <= end)
+        .filter(record => !project || record.project === project)
+        .filter(record => !tag || record.tags.some(t => t.includes(tag)))
+        .filter(record => !onlyBlockers || record.blockers.some(b => (b.text || '').trim()))
+        .filter(record => !onlyRisks || record.risks.some(r => (r.text || '').trim()))
+        .sort((a, b) => b.date.localeCompare(a.date));
+    }
+
+    function renderHistoryPage() {
+      const projects = [...new Set(store.records.map(r => r.project).filter(Boolean))];
+      const records = [...store.records].sort((a, b) => b.date.localeCompare(a.date));
+      const selected = getRecordById(state.selectedHistoryId) || records[0] || null;
+      const listHtml = renderHistoryList(records);
+      return `
+        <div class="page-head">
+          <div>
+            <h1 class="page-title">历史回溯</h1>
+            <p class="page-sub">按日期、项目、标签筛选，支持卡片视图和时间线视图。点击记录可查看完整内容、编辑或复制。</p>
+          </div>
+          <div class="toolbar">
+            <button class="btn ${state.historyView === 'cards' ? 'primary' : ''}" data-action="set-history-view" data-view="cards">卡片列表</button>
+            <button class="btn ${state.historyView === 'timeline' ? 'primary' : ''}" data-action="set-history-view" data-view="timeline">时间线视图</button>
+          </div>
+        </div>
+
+        <div class="card soft" style="margin-bottom:16px;">
+          <div class="filter-row">
+            <div class="field-group" style="min-width:160px;">
+              <label>开始日期</label>
+              <input id="historyStart" class="input" type="date" />
+            </div>
+            <div class="field-group" style="min-width:160px;">
+              <label>结束日期</label>
+              <input id="historyEnd" class="input" type="date" />
+            </div>
+            <div class="field-group" style="min-width:160px;">
+              <label>项目筛选</label>
+              <select id="historyProject" class="select">
+                <option value="">全部项目</option>
+                ${projects.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('')}
+              </select>
+            </div>
+            <div class="field-group" style="min-width:180px;">
+              <label>标签筛选</label>
+              <input id="historyTag" class="input" type="text" placeholder="输入标签关键字" />
+            </div>
+            <div class="field-group">
+              <label><input id="onlyBlockers" type="checkbox" /> 只看有阻塞</label>
+              <label><input id="onlyRisks" type="checkbox" /> 只看有风险</label>
+            </div>
+            <div class="inline-actions" style="align-items:end;">
+              <button class="btn" data-action="apply-history-filter">应用筛选</button>
+              <button class="btn ghost" data-action="reset-history-filter">重置</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="split">
+          <div>
+            <div id="historyListWrap">${listHtml}</div>
+          </div>
+          <div class="detail-panel">
+            ${selected ? renderHistoryDetail(selected) : '<div class="card"><div class="empty">还没有可查看的记录。</div></div>'}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderHistoryList(records) {
+      const filtered = typeof historyRecordsFiltered === 'function' ? historyRecordsFiltered() : records;
+      if (!filtered.length) {
+        return `<div class="card"><div class="empty">没有符合筛选条件的记录。</div></div>`;
+      }
+      if (state.historyView === 'timeline') {
+        return `<div class="timeline">${filtered.map(record => `<div class="timeline-item">${renderHistoryCard(record)}</div>`).join('')}</div>`;
+      }
+      return `<div class="history-list">${filtered.map(renderHistoryCard).join('')}</div>`;
+    }
+
+    function renderHistoryCard(record) {
+      const hasBlocker = record.blockers.some(b => (b.text || '').trim());
+      const hasRisk = record.risks.some(r => (r.text || '').trim());
+      return `
+        <div class="card history-card" data-action="select-history" data-id="${record.id}">
+          <div class="history-head">
+            <div>
+              <div class="history-title">${escapeHtml(record.date)} · ${escapeHtml(record.project || '未命名项目')}</div>
+              <div class="history-sub">${buildTagHTML(record.tags)}</div>
+            </div>
+            <div class="inline-actions">
+              ${hasBlocker ? '<span class="pill">有阻塞</span>' : ''}
+              ${hasRisk ? '<span class="pill">有风险</span>' : ''}
+            </div>
+          </div>
+          <div class="summary-list">
+            <div><strong>推进：</strong>${escapeHtml((record.progress || []).filter(Boolean).slice(0, 2).join('；') || '—')}</div>
+            <div><strong>明日：</strong>${escapeHtml((record.tomorrowTop3 || []).filter(Boolean).slice(0, 2).join('；') || '—')}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    function riskBadge(level) {
+      const cls = level === '高' ? 'high' : level === '低' ? 'low' : 'mid';
+      return `<span class="badge ${cls}">${escapeHtml(level || '中')}</span>`;
+    }
+
+    function renderHistoryDetail(record) {
+      return `
+        <div class="card">
+          <div class="history-head" style="margin-bottom:12px;">
+            <div>
+              <div class="history-title">${escapeHtml(record.date)}</div>
+              <div class="history-sub">${escapeHtml(record.project || '未命名项目')}</div>
+            </div>
+            <div class="inline-actions">
+              <button class="btn small" data-action="edit-history" data-id="${record.id}">编辑此记录</button>
+              <button class="btn small" data-action="duplicate-history" data-id="${record.id}">复制为新记录</button>
+              <button class="btn small danger" data-action="delete-history" data-id="${record.id}">删除</button>
+            </div>
+          </div>
+          <div class="detail-block">
+            <h4>标签</h4>
+            <div>${buildTagHTML(record.tags)}</div>
+          </div>
+          <div class="detail-block">
+            <h4>今日推进结果</h4>
+            <ul>${(record.progress || []).filter(Boolean).map(v => `<li>${escapeHtml(v)}</li>`).join('') || '<li>无</li>'}</ul>
+          </div>
+          <div class="detail-block">
+            <h4>当前阻塞</h4>
+            <ul>${(record.blockers || []).filter(v => (v.text || '').trim()).map(v => `<li>${escapeHtml(v.text)}${v.owner ? `｜需要谁：${escapeHtml(v.owner)}` : ''}${v.deadline ? `｜截止：${escapeHtml(v.deadline)}` : ''}</li>`).join('') || '<li>无</li>'}</ul>
+          </div>
+          <div class="detail-block">
+            <h4>风险与应对</h4>
+            <ul>${(record.risks || []).filter(v => (v.text || '').trim()).map(v => `<li>${escapeHtml(v.text)} ｜ ${escapeHtml(v.action || '无应对动作')} ${riskBadge(v.level)}</li>`).join('') || '<li>无</li>'}</ul>
+          </div>
+          <div class="detail-block">
+            <h4>明日 Top3</h4>
+            <ul>${(record.tomorrowTop3 || []).filter(Boolean).map(v => `<li>${escapeHtml(v)}</li>`).join('') || '<li>无</li>'}</ul>
+          </div>
+          <div class="detail-block">
+            <h4>状态</h4>
+            <div class="inline-actions"><span class="pill">${escapeHtml(record.mood || '一般')}</span><span class="pill">信心值 ${escapeHtml(record.confidence || 3)}</span></div>
+          </div>
+        </div>
+      `;
+    }
+
+    function computeTop3Completion(weekRecords) {
+      let total = 0;
+      let done = 0;
+      const byDate = Object.fromEntries(weekRecords.map(r => [r.date, r]));
+      weekRecords.forEach(record => {
+        const next = byDate[addDays(record.date, 1)];
+        if (!next) return;
+        const nextProgress = (next.progress || []).map(normalizeText).filter(Boolean);
+        (record.tomorrowTop3 || []).filter(Boolean).forEach(item => {
+          total += 1;
+          const normalized = normalizeText(item);
+          if (nextProgress.some(p => p.includes(normalized) || normalized.includes(p))) {
+            done += 1;
+          }
+        });
+      });
+      return total ? Math.round((done / total) * 100) : 0;
+    }
+
+    function renderWeeklyPage() {
+      const dates = getWeekRange(state.weeklyStart);
+      const records = dates.map(getRecordByDate).filter(Boolean).sort((a, b) => a.date.localeCompare(b.date));
+      const blockersDays = records.filter(r => r.blockers.some(b => (b.text || '').trim())).length;
+      const riskDays = records.filter(r => r.risks.some(risk => (risk.text || '').trim())).length;
+      const projectCount = {};
+      records.forEach(r => { if (r.project) projectCount[r.project] = (projectCount[r.project] || 0) + 1; });
+      const projectText = Object.entries(projectCount).map(([k, v]) => `${k}（${v}）`).join('，') || '暂无';
+      const completion = computeTop3Completion(records);
+      return `
+        <div class="page-head">
+          <div>
+            <h1 class="page-title">周复盘</h1>
+            <p class="page-sub">聚合最近一周的推进、阻塞与风险。可调用 AI 生成周总结，也能导出 Markdown 周报。</p>
+          </div>
+          <div class="toolbar">
+            <button class="btn" data-action="generate-week-summary">生成周总结</button>
+            <button class="btn" data-action="generate-week-risk">生成风险分析</button>
+            <button class="btn primary" data-action="export-week-markdown">导出 Markdown 周报</button>
+          </div>
+        </div>
+
+        <div class="card soft" style="margin-bottom:16px;">
+          <div class="inline-actions">
+            <div class="field-group" style="min-width:200px;">
+              <label>周起始日期（周一）</label>
+              <input id="weeklyStart" class="input" type="date" value="${escapeHtml(state.weeklyStart)}" />
+            </div>
+            <div class="inline-actions" style="align-items:end;">
+              <button class="btn" data-action="apply-week">查看本周</button>
+              <span class="pill">范围 ${escapeHtml(dates[0])} ~ ${escapeHtml(dates[6])}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-3" style="margin-bottom:16px;">
+          <div class="card stat-card"><div class="stat-kicker">记录天数</div><div class="stat-value">${records.length}</div></div>
+          <div class="card stat-card"><div class="stat-kicker">有阻塞的天数</div><div class="stat-value">${blockersDays}</div></div>
+          <div class="card stat-card"><div class="stat-kicker">有风险的天数</div><div class="stat-value">${riskDays}</div></div>
+          <div class="card stat-card"><div class="stat-kicker">项目分布</div><div>${escapeHtml(projectText)}</div></div>
+          <div class="card stat-card"><div class="stat-kicker">Top3 完成率（近似）</div><div class="stat-value">${completion}%</div></div>
+          <div class="card stat-card"><div class="stat-kicker">默认 AI 场景</div><div>${escapeHtml(store.aiScenes.find(s => s.type === '周结')?.name || '周结总结')} / ${escapeHtml(store.aiScenes.find(s => s.type === '风险分析')?.name || '风险分析')}</div></div>
+        </div>
+
+        <div class="week-grid" style="display:grid; grid-template-columns: 1.05fr 0.95fr; gap:18px;">
+          <div class="card">
+            <h3 class="section-title">本周每日摘要 <span class="meta">按时间顺序查看这一周做了什么</span></h3>
+            <div class="week-list">
+              ${records.length ? records.map(r => `
+                <div class="week-item">
+                  <div class="history-head">
+                    <div><strong>${escapeHtml(r.date)}</strong> · ${escapeHtml(r.project || '未命名项目')}</div>
+                    <div class="inline-actions"><span class="pill">${escapeHtml(r.mood || '一般')}</span><span class="pill">信心值 ${escapeHtml(r.confidence || 3)}</span></div>
+                  </div>
+                  <div class="summary-list" style="margin-top:8px;">
+                    <div><strong>推进：</strong>${escapeHtml((r.progress || []).filter(Boolean).join('；') || '—')}</div>
+                    <div><strong>阻塞：</strong>${escapeHtml((r.blockers || []).filter(v => (v.text || '').trim()).map(v => v.text).join('；') || '—')}</div>
+                    <div><strong>风险：</strong>${escapeHtml((r.risks || []).filter(v => (v.text || '').trim()).map(v => v.text).join('；') || '—')}</div>
+                  </div>
+                </div>
+              `).join('') : '<div class="empty">该周范围内还没有记录。</div>'}
+            </div>
+          </div>
+
+          <div style="display:grid; gap:16px;">
+            <div class="card">
+              <h3 class="section-title">本周总结</h3>
+              <div class="ai-result" id="weekSummaryOutput">${escapeHtml(state.aiOutput.summary || '点击“生成周总结”后显示结果。')}</div>
+            </div>
+            <div class="card">
+              <h3 class="section-title">风险分析</h3>
+              <div class="ai-result" id="weekRiskOutput">${escapeHtml(state.aiOutput.risk || '点击“生成风险分析”后显示结果。')}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderAIPage() {
+      const scene = store.aiScenes.find(s => s.id === state.selectedSceneId) || store.aiScenes[0];
+      return `
+        <div class="page-head">
+          <div>
+            <h1 class="page-title">AI 设置</h1>
+            <p class="page-sub">配置 Base URL、API Key、Model，并为不同场景维护不同 prompt 与输出限制。</p>
+          </div>
+          <div class="toolbar">
+            <button class="btn" data-action="add-scene">新增场景</button>
+            <button class="btn" data-action="reset-scenes">恢复默认场景</button>
+            <button class="btn primary" data-action="save-ai-config">保存 AI 设置</button>
+          </div>
+        </div>
+
+        <div class="notice">本页采用通用兼容结构，默认按 OpenAI 风格的 <code>/chat/completions</code> 请求组织。若你用别家的兼容接口，只需调整 Base URL、Model 与 Key。</div>
+
+        <div class="split">
+          <div style="display:grid; gap:16px;">
+            <div class="card">
+              <h3 class="section-title">API 配置</h3>
+              <div class="grid-2">
+                <div class="field-group">
+                  <label>Base URL</label>
+                  <input id="aiBaseUrl" class="input" type="text" value="${escapeHtml(store.aiConfig.baseUrl || '')}" />
+                </div>
+                <div class="field-group">
+                  <label>Model</label>
+                  <input id="aiModel" class="input" type="text" value="${escapeHtml(store.aiConfig.model || '')}" />
+                </div>
+              </div>
+              <div class="field-group">
+                <label>API Key</label>
+                <input id="aiApiKey" class="input" type="password" value="${escapeHtml(store.aiConfig.apiKey || '')}" placeholder="sk-..." />
+              </div>
+              <div class="hint">提示：浏览器直接请求第三方 API 时，服务端需允许 CORS。若本地 file 打开受限，可用本地静态服务器打开此文件。</div>
+            </div>
+
+            <div class="card">
+              <h3 class="section-title">场景编辑</h3>
+              ${scene ? `
+                <div class="grid-2">
+                  <div class="field-group">
+                    <label>场景名称</label>
+                    <input id="sceneName" class="input" type="text" value="${escapeHtml(scene.name)}" />
+                  </div>
+                  <div class="field-group">
+                    <label>场景类型</label>
+                    <select id="sceneType" class="select">
+                      ${['日结', '周结', '风险分析', '自定义'].map(v => `<option value="${v}" ${scene.type === v ? 'selected' : ''}>${v}</option>`).join('')}
+                    </select>
+                  </div>
+                </div>
+                <div class="grid-3">
+                  <div class="field-group">
+                    <label>输入范围</label>
+                    <select id="sceneScope" class="select">
+                      ${['single_day', 'last_7_days', 'custom_range'].map(v => `<option value="${v}" ${scene.inputScope === v ? 'selected' : ''}>${v}</option>`).join('')}
+                    </select>
+                  </div>
+                  <div class="field-group">
+                    <label>输出格式</label>
+                    <select id="sceneFormat" class="select">
+                      ${['text', 'markdown', 'json'].map(v => `<option value="${v}" ${scene.outputFormat === v ? 'selected' : ''}>${v}</option>`).join('')}
+                    </select>
+                  </div>
+                  <div class="field-group">
+                    <label>最大字数 / 长度</label>
+                    <input id="sceneMaxLength" class="input" type="number" value="${escapeHtml(scene.maxLength || 500)}" />
+                  </div>
+                </div>
+                <div class="grid-2">
+                  <div class="field-group">
+                    <label>模型（可覆盖全局）</label>
+                    <input id="sceneModel" class="input" type="text" value="${escapeHtml(scene.model || '')}" />
+                  </div>
+                  <div class="field-group">
+                    <label>Temperature</label>
+                    <input id="sceneTemp" class="input" type="number" step="0.1" min="0" max="2" value="${escapeHtml(scene.temperature ?? 0.2)}" />
+                  </div>
+                </div>
+                <div class="field-group">
+                  <label>System Prompt</label>
+                  <textarea id="sceneSystem" class="textarea">${escapeHtml(scene.systemPrompt || '')}</textarea>
+                </div>
+                <div class="field-group">
+                  <label>User Prompt 模板</label>
+                  <textarea id="sceneUser" class="textarea">${escapeHtml(scene.userPromptTemplate || '')}</textarea>
+                </div>
+                <div class="field-group">
+                  <label>规则限制（每行一条）</label>
+                  <textarea id="sceneRules" class="textarea">${escapeHtml((scene.rules || []).join('\n'))}</textarea>
+                </div>
+                <div class="inline-actions">
+                  <label><input id="sceneEnabled" type="checkbox" ${scene.enabled ? 'checked' : ''} /> 启用该场景</label>
+                </div>
+                <div class="inline-actions">
+                  <button class="btn" data-action="save-scene">保存当前场景</button>
+                  <button class="btn" data-action="test-scene">测试运行</button>
+                  <button class="btn danger" data-action="delete-scene" data-id="${scene.id}">删除当前场景</button>
+                </div>
+              ` : '<div class="empty">没有可编辑的场景。</div>'}
+            </div>
+          </div>
+
+          <div class="detail-panel" style="display:grid; gap:16px;">
+            <div class="card">
+              <h3 class="section-title">场景列表</h3>
+              <div class="scene-list">
+                ${store.aiScenes.map(s => `
+                  <button class="scene-btn ${state.selectedSceneId === s.id ? 'active' : ''}" data-action="select-scene" data-id="${s.id}">
+                    <strong>${escapeHtml(s.name)}</strong><br>
+                    <span class="history-sub">${escapeHtml(s.type)} · ${escapeHtml(s.outputFormat)} · ${s.enabled ? '启用' : '停用'}</span>
+                  </button>
+                `).join('')}
+              </div>
+            </div>
+            <div class="card">
+              <h3 class="section-title">最近一次返回结果</h3>
+              <div class="ai-result">${escapeHtml(state.aiOutput.test || '点击“测试运行”后显示。')}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderDataPage() {
+      const dataPayload = { records: store.records, aiConfig: store.aiConfig, aiScenes: store.aiScenes };
+      const bytes = storageBytesEstimate(dataPayload);
+      return `
+        <div class="page-head">
+          <div>
+            <h1 class="page-title">数据管理</h1>
+            <p class="page-sub">支持 JSON 导入导出、Markdown 周报导出，以及本地数据清理。用于版本迁移与备份最方便。</p>
+          </div>
+          <div class="toolbar">
+            <button class="btn" data-action="export-json">导出 JSON</button>
+            <button class="btn" data-action="open-import">导入 JSON</button>
+            <button class="btn" data-action="export-week-markdown">导出本周 Markdown</button>
+            <button class="btn danger" data-action="clear-all">清空全部数据</button>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <h3 class="section-title">数据概况</h3>
+            <div class="summary-list">
+              <div><strong>记录条数：</strong>${store.records.length}</div>
+              <div><strong>AI 场景数：</strong>${store.aiScenes.length}</div>
+              <div><strong>估算占用：</strong>${bytes} bytes</div>
+              <div><strong>当前日期：</strong>${escapeHtml(state.settings.currentDate)}</div>
+            </div>
+            <div class="footer-note">导出 JSON 后即可作为版本迁移备份。导入时会覆盖当前本地数据，请先备份。</div>
+          </div>
+
+          <div class="card">
+            <h3 class="section-title">导入导出说明</h3>
+            <div class="summary-list">
+              <div>1. 导出 JSON：包含全部 Daily Ops、AI 配置与场景。</div>
+              <div>2. 导入 JSON：读取同结构文件并覆盖本地数据。</div>
+              <div>3. 导出 Markdown：以当前周范围生成可直接粘贴到周报中的文本。</div>
+              <div>4. 清空全部数据：会清空 localStorage 中本页面使用的数据。</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderMain() {
+      const main = document.getElementById('main');
+      let html = '';
+      if (state.currentView === 'today') html = renderTodayPage();
+      if (state.currentView === 'history') html = renderHistoryPage();
+      if (state.currentView === 'weekly') html = renderWeeklyPage();
+      if (state.currentView === 'ai') html = renderAIPage();
+      if (state.currentView === 'data') html = renderDataPage();
+      main.innerHTML = html;
+      attachFieldEnterBehavior();
+    }
+
+    function renderApp() {
+      renderNav();
+      renderMain();
+    }
+
+    function readTodayForm() {
+      const date = document.getElementById('recordDate')?.value || state.settings.currentDate;
+      const currentRecord = getRecordByDate(state.settings.currentDate) || createEmptyRecord(date);
+      const project = document.getElementById('projectInput')?.value.trim() || '';
+      const mood = document.getElementById('moodInput')?.value || '一般';
+      const confidence = Number(document.getElementById('confidenceInput')?.value || 3);
+      const tags = Array.from(document.querySelectorAll('#tagWrap .tag')).map(tagEl => tagEl.childNodes[0]?.textContent?.trim()).filter(Boolean);
+      const progress = Array.from(document.querySelectorAll('.simple-item[data-type="progress"]')).map(el => el.value.trim()).filter(Boolean);
+      const blockers = Array.from(document.querySelectorAll('.blocker-text')).map((el, idx) => ({
+        text: el.value.trim(),
+        owner: document.querySelector(`.blocker-owner[data-index="${idx}"]`)?.value.trim() || '',
+        deadline: document.querySelector(`.blocker-deadline[data-index="${idx}"]`)?.value || ''
+      })).filter(item => item.text || item.owner || item.deadline);
+      const risks = Array.from(document.querySelectorAll('.risk-text')).map((el, idx) => ({
+        text: el.value.trim(),
+        action: document.querySelector(`.risk-action[data-index="${idx}"]`)?.value.trim() || '',
+        level: document.querySelector(`.risk-level[data-index="${idx}"]`)?.value || '中'
+      })).filter(item => item.text || item.action);
+      const tomorrowTop3 = Array.from(document.querySelectorAll('.top3-item')).map(el => el.value.trim()).slice(0, 3);
+      return {
+        ...currentRecord,
+        date,
+        project,
+        tags,
+        progress: progress.length ? progress : [''],
+        blockers: blockers.length ? blockers : [{ text: '', owner: '', deadline: '' }],
+        risks: risks.length ? risks : [{ text: '', action: '', level: '中' }],
+        tomorrowTop3,
+        mood,
+        confidence,
+        updatedAt: timeStamp()
+      };
+    }
+
+    function replaceRecord(record) {
+      const idx = store.records.findIndex(r => r.date === record.date);
+      if (idx >= 0) {
+        store.records[idx] = { ...store.records[idx], ...record, updatedAt: timeStamp() };
+      } else {
+        store.records.push({ ...record, createdAt: record.createdAt || timeStamp(), updatedAt: timeStamp() });
+      }
+      store.records.sort((a, b) => a.date.localeCompare(b.date));
+      persistAll();
+    }
+
+    function appendTag(tag) {
+      const wrap = document.getElementById('tagWrap');
+      if (!wrap) return;
+      const existing = Array.from(wrap.querySelectorAll('.tag')).map(el => el.childNodes[0]?.textContent?.trim());
+      if (existing.includes(tag)) return;
+      if (wrap.querySelector('.pill')) wrap.innerHTML = '';
+      const span = document.createElement('span');
+      span.className = 'tag';
+      span.innerHTML = `${escapeHtml(tag)} <button data-action="remove-tag-dom">✕</button>`;
+      wrap.appendChild(span);
+    }
+
+    function removeTagByElement(button) {
+      const tag = button.closest('.tag');
+      if (tag) tag.remove();
+      const wrap = document.getElementById('tagWrap');
+      if (wrap && !wrap.querySelector('.tag')) {
+        wrap.innerHTML = '<span class="pill">还没有标签</span>';
+      }
+    }
+
+    function mutateTodayDraft(mutator) {
+      const draft = readTodayForm();
+      mutator(draft);
+      renderTodayWithDraft(draft);
+    }
+
+    function renderTodayWithDraft(draft) {
+      const main = document.getElementById('main');
+      const existingCurrentDate = state.settings.currentDate;
+      const original = getRecordByDate(existingCurrentDate);
+      const backup = original ? JSON.parse(JSON.stringify(original)) : null;
+      const tempIndex = store.records.findIndex(r => r.date === existingCurrentDate);
+      if (tempIndex >= 0) store.records[tempIndex] = draft;
+      else store.records.push(draft);
+      store.records.sort((a, b) => a.date.localeCompare(b.date));
+      main.innerHTML = renderTodayPage();
+      if (tempIndex >= 0 && backup) {
+        const idx = store.records.findIndex(r => r.date === draft.date);
+        if (idx >= 0) store.records[idx] = backup;
+      } else {
+        store.records = store.records.filter(r => r.id !== draft.id);
+      }
+      attachFieldEnterBehavior();
+    }
+
+    function readAIForm() {
+      return {
+        baseUrl: document.getElementById('aiBaseUrl')?.value.trim() || '',
+        apiKey: document.getElementById('aiApiKey')?.value.trim() || '',
+        model: document.getElementById('aiModel')?.value.trim() || ''
+      };
+    }
+
+    function readSceneForm() {
+      const scene = store.aiScenes.find(s => s.id === state.selectedSceneId);
+      if (!scene) return null;
+      return {
+        ...scene,
+        name: document.getElementById('sceneName')?.value.trim() || scene.name,
+        type: document.getElementById('sceneType')?.value || scene.type,
+        inputScope: document.getElementById('sceneScope')?.value || scene.inputScope,
+        outputFormat: document.getElementById('sceneFormat')?.value || scene.outputFormat,
+        maxLength: Number(document.getElementById('sceneMaxLength')?.value || scene.maxLength || 500),
+        model: document.getElementById('sceneModel')?.value.trim() || '',
+        temperature: Number(document.getElementById('sceneTemp')?.value || scene.temperature || 0.2),
+        systemPrompt: document.getElementById('sceneSystem')?.value || '',
+        userPromptTemplate: document.getElementById('sceneUser')?.value || '',
+        rules: (document.getElementById('sceneRules')?.value || '').split('\n').map(v => v.trim()).filter(Boolean),
+        enabled: document.getElementById('sceneEnabled')?.checked || false,
+        updatedAt: timeStamp()
+      };
+    }
+
+    function attachFieldEnterBehavior() {
+      document.querySelectorAll('.simple-item, .top3-item').forEach(el => {
+        el.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            const type = e.target.dataset.type;
+            if (type === 'progress') {
+              mutateTodayDraft(draft => draft.progress.push(''));
+            }
+          }
+        });
+      });
+    }
+
+    function selectHistory(id) {
+      state.selectedHistoryId = id;
+      renderMain();
+      restoreHistoryFilters();
+    }
+
+    function restoreHistoryFilters() {
+      const settings = state.historyFilters || {};
+      if (document.getElementById('historyStart')) document.getElementById('historyStart').value = settings.start || '';
+      if (document.getElementById('historyEnd')) document.getElementById('historyEnd').value = settings.end || '';
+      if (document.getElementById('historyProject')) document.getElementById('historyProject').value = settings.project || '';
+      if (document.getElementById('historyTag')) document.getElementById('historyTag').value = settings.tag || '';
+      if (document.getElementById('onlyBlockers')) document.getElementById('onlyBlockers').checked = settings.onlyBlockers || false;
+      if (document.getElementById('onlyRisks')) document.getElementById('onlyRisks').checked = settings.onlyRisks || false;
+      const wrap = document.getElementById('historyListWrap');
+      if (wrap) wrap.innerHTML = renderHistoryList([...store.records].sort((a, b) => b.date.localeCompare(a.date)));
+    }
+
+    function captureHistoryFilters() {
+      state.historyFilters = {
+        start: document.getElementById('historyStart')?.value || '',
+        end: document.getElementById('historyEnd')?.value || '',
+        project: document.getElementById('historyProject')?.value || '',
+        tag: document.getElementById('historyTag')?.value || '',
+        onlyBlockers: document.getElementById('onlyBlockers')?.checked || false,
+        onlyRisks: document.getElementById('onlyRisks')?.checked || false
+      };
+    }
+
+    function serializeRecordForAI(record) {
+      return {
+        date: record.date,
+        project: record.project,
+        tags: record.tags,
+        progress: record.progress.filter(Boolean),
+        blockers: record.blockers.filter(v => v.text || v.owner || v.deadline),
+        risks: record.risks.filter(v => v.text || v.action),
+        tomorrowTop3: record.tomorrowTop3.filter(Boolean),
+        mood: record.mood,
+        confidence: record.confidence
+      };
+    }
+
+    function getSceneByType(type) {
+      return store.aiScenes.find(s => s.type === type && s.enabled) || null;
+    }
+
+    async function callAI(scene, payloadInput) {
+      const config = { ...store.aiConfig };
+      if (!config.baseUrl || !config.apiKey) {
+        throw new Error('请先在 AI 设置页填写 Base URL 和 API Key。');
+      }
+      const userContent = (scene.userPromptTemplate || '').replace('{{input}}', payloadInput);
+      const response = await fetch(config.baseUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${config.apiKey}`
+        },
+        body: JSON.stringify({
+          model: scene.model || config.model,
+          temperature: scene.temperature ?? 0.2,
+          messages: [
+            { role: 'system', content: scene.systemPrompt || '' },
+            { role: 'user', content: userContent }
+          ]
+        })
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`AI 请求失败：${response.status} ${text}`);
+      }
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content;
+      if (!content) {
+        throw new Error('AI 返回为空。');
+      }
+      return content;
+    }
+
+    function tryParseOrganizeJSON(text) {
+      try {
+        const jsonText = text.match(/\{[\s\S]*\}/)?.[0] || text;
+        return JSON.parse(jsonText);
+      } catch {
+        return null;
+      }
+    }
+
+    function downloadTextFile(filename, text, mime = 'text/plain;charset=utf-8') {
+      const blob = new Blob([text], { type: mime });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function generateWeekMarkdown(startDate) {
+      const dates = getWeekRange(startDate);
+      const records = dates.map(getRecordByDate).filter(Boolean).sort((a, b) => a.date.localeCompare(b.date));
+      let out = `# 周复盘（${dates[0]} ~ ${dates[6]}）\n\n`;
+      if (!records.length) {
+        out += '本周暂无记录。\n';
+        return out;
+      }
+      records.forEach(r => {
+        out += `## ${r.date}｜${r.project || '未命名项目'}\n`;
+        out += `- 标签：${(r.tags || []).join('、') || '无'}\n`;
+        out += `- 状态：${r.mood || '一般'}｜信心值：${r.confidence || 3}\n`;
+        out += `- 今日推进结果：\n`;
+        (r.progress || []).filter(Boolean).forEach(v => out += `  - ${v}\n`);
+        out += `- 当前阻塞：\n`;
+        const blockers = (r.blockers || []).filter(v => v.text || v.owner || v.deadline);
+        if (blockers.length) blockers.forEach(v => out += `  - ${v.text || '无描述'}${v.owner ? `｜需要谁：${v.owner}` : ''}${v.deadline ? `｜截止：${v.deadline}` : ''}\n`);
+        else out += `  - 无\n`;
+        out += `- 风险与应对：\n`;
+        const risks = (r.risks || []).filter(v => v.text || v.action);
+        if (risks.length) risks.forEach(v => out += `  - 风险：${v.text || '无'}｜应对：${v.action || '无'}｜等级：${v.level || '中'}\n`);
+        else out += `  - 无\n`;
+        out += `- 明日 Top3：\n`;
+        const top3 = (r.tomorrowTop3 || []).filter(Boolean);
+        if (top3.length) top3.forEach(v => out += `  - ${v}\n`);
+        else out += `  - 无\n`;
+        out += `\n`;
+      });
+      return out;
+    }
+
+    document.addEventListener('click', async (e) => {
+      const nav = e.target.closest('[data-nav]');
+      if (nav) {
+        if (state.currentView === 'history') captureHistoryFilters();
+        state.currentView = nav.dataset.nav;
+        renderApp();
+        if (state.currentView === 'history') restoreHistoryFilters();
+        return;
+      }
+
+      const btn = e.target.closest('[data-action]');
+      if (!btn) return;
+      const action = btn.dataset.action;
+
+      if (action === 'new-today') {
+        const existing = getRecordByDate(todayStr());
+        state.settings.currentDate = todayStr();
+        renderMain();
+        toast(existing ? '已切回今天的现有记录。' : '已切到今天的新记录。');
+      }
+
+      if (action === 'add-tag') {
+        const input = document.getElementById('tagInput');
+        const value = input?.value.trim();
+        if (!value) return toast('先输入一个标签。');
+        appendTag(value);
+        input.value = '';
+      }
+
+      if (action === 'remove-tag-dom') {
+        removeTagByElement(btn);
+      }
+
+      if (action === 'add-progress') {
+        mutateTodayDraft(draft => draft.progress.push(''));
+      }
+
+      if (action === 'remove-simple') {
+        const type = btn.dataset.type;
+        const index = Number(btn.dataset.index);
+        mutateTodayDraft(draft => {
+          draft[type].splice(index, 1);
+          if (!draft[type].length) draft[type].push('');
+        });
+      }
+
+      if (action === 'add-blocker') {
+        mutateTodayDraft(draft => draft.blockers.push({ text: '', owner: '', deadline: '' }));
+      }
+
+      if (action === 'remove-blocker') {
+        const index = Number(btn.dataset.index);
+        mutateTodayDraft(draft => {
+          draft.blockers.splice(index, 1);
+          if (!draft.blockers.length) draft.blockers.push({ text: '', owner: '', deadline: '' });
+        });
+      }
+
+      if (action === 'add-risk') {
+        mutateTodayDraft(draft => draft.risks.push({ text: '', action: '', level: '中' }));
+      }
+
+      if (action === 'remove-risk') {
+        const index = Number(btn.dataset.index);
+        mutateTodayDraft(draft => {
+          draft.risks.splice(index, 1);
+          if (!draft.risks.length) draft.risks.push({ text: '', action: '', level: '中' });
+        });
+      }
+
+      if (action === 'copy-yesterday') {
+        const current = document.getElementById('recordDate')?.value || state.settings.currentDate;
+        const yesterday = getRecordByDate(addDays(current, -1));
+        if (!yesterday) return toast('昨天没有记录可复制。');
+        const cloned = cloneRecord(yesterday, current);
+        state.settings.currentDate = current;
+        renderTodayWithDraft(cloned);
+        toast('已复制昨日内容到当前日期，记得保存。');
+      }
+
+      if (action === 'inherit-top3') {
+        const current = document.getElementById('recordDate')?.value || state.settings.currentDate;
+        const yesterday = getRecordByDate(addDays(current, -1));
+        if (!yesterday) return toast('昨天没有 Top3 可继承。');
+        mutateTodayDraft(draft => {
+          draft.tomorrowTop3 = Array.from({ length: 3 }, (_, i) => yesterday.tomorrowTop3?.[i] || '');
+          draft.tags = [...new Set([...(draft.tags || []), '延续事项'])];
+        });
+        toast('已继承昨日 Top3，并加上“延续事项”标签。');
+      }
+
+      if (action === 'save-today') {
+        const form = readTodayForm();
+        const previousDate = state.settings.currentDate;
+        if (previousDate !== form.date) {
+          const existingNewDate = getRecordByDate(form.date);
+          if (existingNewDate && existingNewDate.id !== form.id) {
+            if (!confirm(`日期 ${form.date} 已有记录，是否覆盖该日期原有记录？`)) return;
+          }
+        }
+        const oldIndex = store.records.findIndex(r => r.id === form.id || r.date === previousDate);
+        if (oldIndex >= 0) store.records.splice(oldIndex, 1);
+        replaceRecord(form);
+        state.settings.currentDate = form.date;
+        state.selectedHistoryId = form.id;
+        persistAll();
+        renderApp();
+        toast('记录已保存。');
+      }
+
+      if (action === 'set-history-view') {
+        captureHistoryFilters();
+        state.historyView = btn.dataset.view;
+        renderMain();
+        restoreHistoryFilters();
+      }
+
+      if (action === 'apply-history-filter') {
+        captureHistoryFilters();
+        restoreHistoryFilters();
+      }
+
+      if (action === 'reset-history-filter') {
+        state.historyFilters = {};
+        renderMain();
+      }
+
+      if (action === 'select-history') {
+        captureHistoryFilters();
+        selectHistory(btn.dataset.id);
+      }
+
+      if (action === 'edit-history') {
+        const record = getRecordById(btn.dataset.id);
+        if (!record) return;
+        state.settings.currentDate = record.date;
+        state.currentView = 'today';
+        renderApp();
+        toast('已切换到今日记录页进行编辑。');
+      }
+
+      if (action === 'duplicate-history') {
+        const record = getRecordById(btn.dataset.id);
+        if (!record) return;
+        const newDate = prompt('复制为哪一天？请输入 yyyy-mm-dd', todayStr()) || '';
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(newDate)) return toast('日期格式不正确。');
+        const duplicated = cloneRecord(record, newDate);
+        replaceRecord(duplicated);
+        state.selectedHistoryId = duplicated.id;
+        renderMain();
+        restoreHistoryFilters();
+        toast('已复制为新记录。');
+      }
+
+      if (action === 'delete-history') {
+        const id = btn.dataset.id;
+        if (!confirm('确认删除这条记录？')) return;
+        store.records = store.records.filter(r => r.id !== id);
+        state.selectedHistoryId = store.records[0]?.id || null;
+        persistAll();
+        renderMain();
+        restoreHistoryFilters();
+        toast('记录已删除。');
+      }
+
+      if (action === 'apply-week') {
+        const val = document.getElementById('weeklyStart')?.value;
+        if (val) state.weeklyStart = getWeekStart(val);
+        renderMain();
+      }
+
+      if (action === 'generate-week-summary') {
+        const scene = getSceneByType('周结');
+        if (!scene) return toast('没有启用的“周结”场景。');
+        try {
+          const payload = JSON.stringify(getWeekRange(state.weeklyStart).map(getRecordByDate).filter(Boolean).map(serializeRecordForAI), null, 2);
+          state.aiOutput.summary = '生成中...';
+          renderMain();
+          const text = await callAI(scene, payload);
+          state.aiOutput.summary = text;
+          renderMain();
+          toast('周总结已生成。');
+        } catch (err) {
+          state.aiOutput.summary = String(err.message || err);
+          renderMain();
+          toast('生成失败，请检查 AI 设置。');
+        }
+      }
+
+      if (action === 'generate-week-risk') {
+        const scene = getSceneByType('风险分析');
+        if (!scene) return toast('没有启用的“风险分析”场景。');
+        try {
+          const payload = JSON.stringify(getWeekRange(state.weeklyStart).map(getRecordByDate).filter(Boolean).map(serializeRecordForAI), null, 2);
+          state.aiOutput.risk = '生成中...';
+          renderMain();
+          const text = await callAI(scene, payload);
+          state.aiOutput.risk = text;
+          renderMain();
+          toast('风险分析已生成。');
+        } catch (err) {
+          state.aiOutput.risk = String(err.message || err);
+          renderMain();
+          toast('生成失败，请检查 AI 设置。');
+        }
+      }
+
+      if (action === 'save-ai-config') {
+        store.aiConfig = readAIForm();
+        persistAll();
+        toast('AI 配置已保存。');
+      }
+
+      if (action === 'select-scene') {
+        state.selectedSceneId = btn.dataset.id;
+        renderMain();
+      }
+
+      if (action === 'add-scene') {
+        const scene = {
+          id: uid(),
+          name: '新场景',
+          type: '自定义',
+          enabled: true,
+          systemPrompt: '',
+          userPromptTemplate: '原始数据：\n{{input}}',
+          inputScope: 'custom_range',
+          outputFormat: 'text',
+          maxLength: 500,
+          rules: [],
+          model: store.aiConfig.model || 'gpt-4o-mini',
+          temperature: 0.3,
+          createdAt: timeStamp(),
+          updatedAt: timeStamp()
+        };
+        store.aiScenes.push(scene);
+        state.selectedSceneId = scene.id;
+        persistAll();
+        renderMain();
+      }
+
+      if (action === 'reset-scenes') {
+        if (!confirm('恢复默认场景会覆盖当前场景列表，是否继续？')) return;
+        store.aiScenes = defaultScenes();
+        state.selectedSceneId = store.aiScenes[0]?.id || null;
+        persistAll();
+        renderMain();
+        toast('已恢复默认场景。');
+      }
+
+      if (action === 'save-scene') {
+        const scene = readSceneForm();
+        if (!scene) return;
+        const idx = store.aiScenes.findIndex(s => s.id === scene.id);
+        if (idx >= 0) store.aiScenes[idx] = scene;
+        persistAll();
+        renderMain();
+        toast('场景已保存。');
+      }
+
+      if (action === 'delete-scene') {
+        if (store.aiScenes.length <= 1) return toast('至少保留一个场景。');
+        if (!confirm('确认删除当前场景？')) return;
+        store.aiScenes = store.aiScenes.filter(s => s.id !== btn.dataset.id);
+        state.selectedSceneId = store.aiScenes[0]?.id || null;
+        persistAll();
+        renderMain();
+      }
+
+      if (action === 'test-scene') {
+        const scene = readSceneForm();
+        if (!scene) return;
+        try {
+          store.aiConfig = readAIForm();
+          const payload = JSON.stringify({ test: true, records: store.records.slice(-3).map(serializeRecordForAI) }, null, 2);
+          state.aiOutput.test = '测试运行中...';
+          renderMain();
+          const text = await callAI(scene, payload);
+          state.aiOutput.test = text;
+          renderMain();
+          toast('测试完成。');
+        } catch (err) {
+          state.aiOutput.test = String(err.message || err);
+          renderMain();
+          toast('测试失败。');
+        }
+      }
+
+      if (action === 'ai-organize') {
+        const scene = getSceneByType('日结');
+        if (!scene) return toast('没有启用的“日结”场景。');
+        const input = document.getElementById('quickNote')?.value.trim();
+        if (!input) return toast('先在极简输入框写一点内容。');
+        try {
+          const raw = await callAI(scene, input);
+          const parsed = tryParseOrganizeJSON(raw);
+          if (!parsed) {
+            document.getElementById('quickNote').value = raw;
+            return toast('未能解析为 JSON，已将返回内容保留在输入框中。');
+          }
+          mutateTodayDraft(draft => {
+            if (Array.isArray(parsed.progress)) draft.progress = parsed.progress.length ? parsed.progress : draft.progress;
+            if (Array.isArray(parsed.blockers)) {
+              draft.blockers = parsed.blockers.map(v => typeof v === 'string' ? { text: v, owner: '', deadline: '' } : { text: v.text || '', owner: v.owner || '', deadline: v.deadline || '' });
+            }
+            if (Array.isArray(parsed.risks)) {
+              draft.risks = parsed.risks.map(v => typeof v === 'string' ? { text: v, action: '', level: '中' } : { text: v.text || '', action: v.action || '', level: v.level || '中' });
+            }
+            if (Array.isArray(parsed.tomorrowTop3)) draft.tomorrowTop3 = Array.from({ length: 3 }, (_, i) => parsed.tomorrowTop3[i] || '');
+          });
+          toast('已整理到 Daily Ops 表单。');
+        } catch (err) {
+          toast(String(err.message || err));
+        }
+      }
+
+      if (action === 'export-json') {
+        downloadTextFile(`daily-ops-export-${todayStr()}.json`, JSON.stringify({
+          records: store.records,
+          aiConfig: store.aiConfig,
+          aiScenes: store.aiScenes
+        }, null, 2), 'application/json;charset=utf-8');
+        toast('JSON 已导出。');
+      }
+
+      if (action === 'open-import') {
+        document.getElementById('importFile').click();
+      }
+
+      if (action === 'export-week-markdown') {
+        const md = generateWeekMarkdown(state.weeklyStart);
+        downloadTextFile(`daily-ops-week-${state.weeklyStart}.md`, md, 'text/markdown;charset=utf-8');
+        toast('Markdown 周报已导出。');
+      }
+
+      if (action === 'clear-all') {
+        if (!confirm('确认清空全部数据？此操作不可撤销。')) return;
+        localStorage.removeItem(STORAGE_KEYS.records);
+        localStorage.removeItem(STORAGE_KEYS.aiConfig);
+        localStorage.removeItem(STORAGE_KEYS.aiScenes);
+        store.records = sampleRecords();
+        store.aiConfig = defaultAIConfig();
+        store.aiScenes = defaultScenes();
+        state.selectedSceneId = store.aiScenes[0]?.id || null;
+        state.selectedHistoryId = store.records[0]?.id || null;
+        persistAll();
+        renderApp();
+        toast('已恢复到示例数据。');
+      }
+    });
+
+    document.addEventListener('change', (e) => {
+      if (e.target.id === 'recordDate') {
+        state.settings.currentDate = e.target.value || todayStr();
+        persistAll();
+        renderMain();
+      }
+    });
+
+    document.getElementById('importFile').addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const parsed = JSON.parse(text);
+        if (!Array.isArray(parsed.records) || !Array.isArray(parsed.aiScenes) || typeof parsed.aiConfig !== 'object') {
+          throw new Error('JSON 结构不符合预期。');
+        }
+        store.records = parsed.records;
+        store.aiScenes = parsed.aiScenes;
+        store.aiConfig = parsed.aiConfig;
+        state.selectedSceneId = store.aiScenes[0]?.id || null;
+        state.selectedHistoryId = store.records[0]?.id || null;
+        persistAll();
+        renderApp();
+        toast('数据导入成功。');
+      } catch (err) {
+        toast(String(err.message || err));
+      } finally {
+        e.target.value = '';
+      }
+    });
+
+    renderApp();
+  </script>
+</body>
+</html>
