@@ -123,10 +123,11 @@ svg.lines{position:absolute;top:0;left:0;overflow:visible;pointer-events:none}
 .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px;font-weight:500}
 .field input,.field select,.field textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:6px;font-size:13px;background:var(--card);color:var(--text)}
 .field textarea{height:70px;resize:vertical}
-.field .date-wrap{display:flex;gap:6px}
-.field .date-wrap input{flex:1}
-.field .date-wrap button{width:32px;border:1px solid var(--line);background:var(--card);border-radius:6px;cursor:pointer;color:var(--danger);font-size:14px}
+.field .date-wrap{display:flex;gap:6px;align-items:stretch;position:relative}
+.field .date-wrap .ep-due-text{flex:1;min-width:0}
+.field .date-wrap button{width:32px;flex-shrink:0;border:1px solid var(--line);background:var(--card);border-radius:6px;cursor:pointer;color:var(--danger);font-size:14px}
 .field .date-wrap button:hover{background:var(--dangerS)}
+.ep-due-picker-hidden{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;left:0;top:0;margin:0;padding:0;border:0;clip:rect(0,0,0,0)}
 .panel-btns{display:flex;flex-direction:column;gap:8px;margin-top:20px}
 .panel-btns button{padding:8px;border:1px solid var(--line);border-radius:6px;background:var(--card);cursor:pointer;font-size:13px;color:var(--text)}
 .panel-btns button:hover{background:var(--brandS)}
@@ -301,7 +302,7 @@ svg.lines{position:absolute;top:0;left:0;overflow:visible;pointer-events:none}
 <div class="field"><label>标题</label><input id="ep-title" oninput="epUpdate('title',this.value)"></div>
 <div class="field"><label>状态</label><select id="ep-status" onchange="epUpdate('status',this.value)"><option value="todo">未开始</option><option value="doing">进行中</option><option value="waiting">跟进中</option><option value="blocked">阻塞中</option><option value="scheduled">已排期</option><option value="done">已完成</option><option value="stopped">已停止</option></select></div>
 <div class="field"><label>优先级</label><select id="ep-priority" onchange="epUpdate('priority',this.value)"><option value="low">低</option><option value="medium">中</option><option value="high">高</option></select></div>
-<div class="field"><label>截止日期</label><div class="date-wrap"><input type="date" id="ep-due" onchange="epUpdate('dueDate',this.value)"><button onclick="clearDue()" title="清除日期">&times;</button></div></div>
+<div class="field"><label for="ep-due">截止日期</label><div class="date-wrap"><input type="text" id="ep-due" class="ep-due-text" placeholder="YYYY-MM-DD" autocomplete="off" onclick="epDueTryShowPicker()" onblur="epDueOnBlur()" onkeydown="if(event.key==='Enter'){event.preventDefault();epDueCommitFromText();}"><input type="date" id="ep-due-picker" class="ep-due-picker-hidden" tabindex="-1" aria-hidden="true" onchange="epDuePickerChanged()"><button type="button" onclick="event.stopPropagation();clearDue()" title="清除日期">&times;</button></div></div>
 <div class="field"><label>备注</label><textarea id="ep-note" oninput="epUpdate('note',this.value)"></textarea></div>
 <div class="panel-btns">
 <button id="branchToggleBtn" onclick="highlightBranchFromPanel()">突出此分支</button>
@@ -342,7 +343,7 @@ svg.lines{position:absolute;top:0;left:0;overflow:visible;pointer-events:none}
 import { supabase, MINDTASK_STATE_TABLE } from './supabase-client.js';
 
 /** 每次发布/修改页面后递增，便于对照是否已加载最新脚本 */
-const MINDTASK_APP_VERSION = '1.1.08';
+const MINDTASK_APP_VERSION = '1.1.09';
 (()=>{let el=document.getElementById('mindtaskMenuVersion');if(el)el.textContent='Ver '+MINDTASK_APP_VERSION;})();
 
 const AFTER_LOGIN = './index.html';
@@ -1437,7 +1438,10 @@ function fillPanel(id){
   document.getElementById('ep-status').disabled=lockByAncestor;
   document.getElementById('ep-status').title=lockByAncestor?'上级分支已'+(forced==='done'?'完成':'停止')+'，当前未结束状态已锁定':'';
   document.getElementById('ep-priority').value=node.priority;
-  document.getElementById('ep-due').value=node.dueDate;
+  let due=node.dueDate||'';
+  document.getElementById('ep-due').value=due;
+  let epPick=document.getElementById('ep-due-picker');
+  if(epPick)epPick.value=due||'';
   document.getElementById('ep-note').value=node.note;
   updateBranchToggleBtn();
 }
@@ -1467,8 +1471,89 @@ function epUpdate(field,val){
   }
   save();renderAll();
 }
+function normalizeDueDateStr(s){
+  s=String(s||'').trim();
+  if(!s)return'';
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)){
+    let d=new Date(s+'T12:00:00');
+    if(!isNaN(d.getTime()))return s;
+  }
+  let m=s.match(/^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})$/);
+  if(m){
+    let y=+m[1],mo=+m[2],d=+m[3];
+    if(mo>=1&&mo<=12&&d>=1&&d<=31){
+      let dt=new Date(y,mo-1,d);
+      if(dt.getFullYear()===y&&dt.getMonth()===mo-1&&dt.getDate()===d)
+        return y+'-'+String(mo).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    }
+  }
+  m=s.match(/^(\d{4})(\d{2})(\d{2})$/);
+  if(m){
+    let y=+m[1],mo=+m[2],d=+m[3];
+    let dt=new Date(y,mo-1,d);
+    if(dt.getFullYear()===y&&dt.getMonth()===mo-1&&dt.getDate()===d)
+      return y+'-'+String(mo).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+  }
+  return'';
+}
+let epDueBlurT=null;
+let epDueOpeningPicker=false;
+function epDueCancelBlurCommit(){clearTimeout(epDueBlurT);epDueBlurT=null;}
+function epDueScheduleBlurCommit(){
+  epDueCancelBlurCommit();
+  epDueBlurT=setTimeout(()=>{epDueBlurT=null;epDueCommitFromText();},280);
+}
+function epDueOnBlur(){
+  if(epDueOpeningPicker)return;
+  epDueScheduleBlurCommit();
+}
+function epDueCommitFromText(){
+  let el=document.getElementById('ep-due');
+  let pick=document.getElementById('ep-due-picker');
+  if(!el)return;
+  let raw=el.value;
+  let n=normalizeDueDateStr(raw);
+  if(raw.trim()&&!n){
+    el.value='';
+    if(pick)pick.value='';
+    epUpdate('dueDate','');
+    return;
+  }
+  el.value=n;
+  if(pick)pick.value=n||'';
+  epUpdate('dueDate',n);
+}
+function epDuePickerChanged(){
+  epDueOpeningPicker=false;
+  epDueCancelBlurCommit();
+  let pick=document.getElementById('ep-due-picker');
+  let el=document.getElementById('ep-due');
+  if(!pick||!el)return;
+  let v=pick.value||'';
+  el.value=v;
+  epUpdate('dueDate',v);
+}
+function epDueTryShowPicker(){
+  epDueCancelBlurCommit();
+  epDueOpeningPicker=true;
+  setTimeout(()=>{epDueOpeningPicker=false;},900);
+  let el=document.getElementById('ep-due');
+  let pick=document.getElementById('ep-due-picker');
+  if(!el||!pick)return;
+  let v=normalizeDueDateStr(el.value);
+  pick.value=v||todayISO();
+  try{
+    pick.showPicker();
+  }catch(_){
+    try{pick.focus();pick.click();}catch(__){}
+  }
+}
 function clearDue(){
-  document.getElementById('ep-due').value='';
+  epDueCancelBlurCommit();
+  let el=document.getElementById('ep-due');
+  let pick=document.getElementById('ep-due-picker');
+  if(el)el.value='';
+  if(pick)pick.value='';
   epUpdate('dueDate','');
 }
 function addChildFromPanel(){if(selectedId)addChild(selectedId)}
@@ -2505,7 +2590,7 @@ function batchDelete(){
 Object.assign(window,{
   toggleHubNav,goHubPage,toggleMenu,closeMenu,doExportData,doExportMarkdown,doImportData,doExportTheme,doImportTheme,resetTheme,
   fitCanvas,centerRoot,expandAll,collapseAll,toggleStatusFilter,togglePriorityFilter,toggleViewMask,
-  toggleProjectPanel,toggleCalendarDrawer,newProject,closePanel,epUpdate,clearDue,
+  toggleProjectPanel,toggleCalendarDrawer,newProject,closePanel,epUpdate,clearDue,epDueTryShowPicker,epDueOnBlur,epDuePickerChanged,epDueCommitFromText,
   highlightBranchFromPanel,addChildFromPanel,addSiblingFromPanel,deleteFromPanel,
   setCalMode,calShiftPeriod,calGoToday,batchSetStatus,batchDelete,renderAll,zoomBy,onSearch,
   applyFilters,applyViewMask,manualSyncToCloud,doLogout,
