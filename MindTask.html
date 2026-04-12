@@ -342,7 +342,7 @@ svg.lines{position:absolute;top:0;left:0;overflow:visible;pointer-events:none}
 import { supabase, MINDTASK_STATE_TABLE } from './supabase-client.js';
 
 /** 每次发布/修改页面后递增，便于对照是否已加载最新脚本 */
-const MINDTASK_APP_VERSION = '1.1.03';
+const MINDTASK_APP_VERSION = '1.1.04';
 (()=>{let el=document.getElementById('mindtaskMenuVersion');if(el)el.textContent='Ver '+MINDTASK_APP_VERSION;})();
 
 const AFTER_LOGIN = './index.html';
@@ -1825,6 +1825,7 @@ function onZoom(e){
     dz=e.deltaY>0?-0.1:0.1;
     if(e.deltaMode===1)dz*=12;
     if(e.deltaMode===2)dz*=32;
+    dz*=4;
   }
   let nz=Math.max(0.2,Math.min(3,zoom+dz));
   panX=mx-(mx-panX)*(nz/zoom);
