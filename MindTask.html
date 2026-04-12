@@ -21,15 +21,13 @@
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);overflow:hidden;height:100vh;display:flex;flex-direction:column}
 body.drag-sorting,body.drag-sorting *{-webkit-user-select:none;user-select:none;cursor:grabbing!important}
 #toolbar{height:44px;background:var(--panel);border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 12px;gap:8px;z-index:100;flex-shrink:0;position:relative}
-.toolbar-right{display:flex;align-items:center;gap:8px;margin-left:auto;flex-shrink:0}
-#syncStatusText{font-size:11px;color:var(--muted);white-space:nowrap;max-width:280px;overflow:hidden;text-overflow:ellipsis}
-#manualSyncBtn,#logoutBtnSync{height:30px;padding:0 10px;border:1px solid var(--line);background:var(--card);border-radius:6px;cursor:pointer;font-size:12px;color:var(--text);white-space:nowrap}
-#manualSyncBtn:hover,#logoutBtnSync:hover{background:var(--brandS);border-color:var(--brand)}
+.toolbar-end{display:flex;align-items:center;gap:8px;margin-left:auto;flex-shrink:0;min-width:0}
+#syncStatusText{font-size:11px;color:var(--muted);white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis;flex-shrink:0}
 #toolbar button,.tbtn{height:30px;padding:0 10px;border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap}
 #toolbar button:hover,.tbtn:hover{background:var(--brandS);border-color:var(--brand)}
-.search-wrap{position:absolute;left:50%;transform:translateX(-50%)}
-#searchInput{height:30px;width:200px;padding:0 10px;border:1px solid var(--line);border-radius:6px;font-size:13px;background:var(--card);color:var(--text)}
-#searchResults{position:absolute;top:34px;right:0;width:320px;max-height:300px;overflow-y:auto;background:var(--card);border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px #0001;display:none;z-index:200}
+.search-wrap{position:relative;flex:1 1 160px;min-width:120px;max-width:280px}
+#searchInput{height:30px;width:100%;min-width:0;max-width:280px;padding:0 10px;border:1px solid var(--line);border-radius:6px;font-size:13px;background:var(--card);color:var(--text)}
+#searchResults{position:absolute;top:34px;left:0;width:min(320px,85vw);max-height:300px;overflow-y:auto;background:var(--card);border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px #0001;display:none;z-index:200}
 .sr-item{padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--bg2)}
 .sr-item:hover{background:var(--brandS)}
 .sr-path{font-size:11px;color:var(--muted2)}
@@ -231,6 +229,9 @@ svg.lines{position:absolute;top:0;left:0;overflow:visible;pointer-events:none}
 <div class="menu-sub"><div class="menu-item">背景 &#9656;</div><div class="sub-menu" id="bgSub"></div></div>
 <div class="menu-item" onclick="resetTheme()">恢复默认主题</div>
 <div class="menu-sep"></div>
+<div class="menu-item" onclick="closeMenu();manualSyncToCloud()">手动同步</div>
+<div class="menu-item" onclick="closeMenu();doLogout()">退出登录</div>
+<div class="menu-sep"></div>
 <div class="menu-version" id="mindtaskMenuVersion" aria-label="应用版本"></div>
 </div>
 </div>
@@ -271,17 +272,15 @@ svg.lines{position:absolute;top:0;left:0;overflow:visible;pointer-events:none}
 <label><input type="checkbox" id="viewMaskStoppedCb" onchange="applyViewMask()"> 隐藏已停止</label>
 </div>
 </div>
+<div class="toolbar-end">
+<span id="syncStatusText">未同步</span>
 <div class="search-wrap">
 <input type="text" id="searchInput" placeholder="搜索任务..." oninput="onSearch()">
 <div id="searchResults"></div>
 </div>
-<div class="toolbar-right">
-<span id="syncStatusText">未同步</span>
-<button type="button" id="manualSyncBtn" onclick="manualSyncToCloud()">手动同步</button>
-<button type="button" id="logoutBtnSync" onclick="doLogout()">退出登录</button>
-</div>
 <button id="projectToggleBtn" onclick="toggleProjectPanel()" title="项目列表">&#128209; 项目</button>
 <button id="calToggleBtn" onclick="toggleCalendarDrawer()" title="按截止日期查看">&#128197; 日历</button>
+</div>
 </div>
 <div id="main">
 <div id="projectPanel">
@@ -343,7 +342,7 @@ svg.lines{position:absolute;top:0;left:0;overflow:visible;pointer-events:none}
 import { supabase, MINDTASK_STATE_TABLE } from './supabase-client.js';
 
 /** 每次发布/修改页面后递增，便于对照是否已加载最新脚本 */
-const MINDTASK_APP_VERSION = '1.1.02';
+const MINDTASK_APP_VERSION = '1.1.03';
 (()=>{let el=document.getElementById('mindtaskMenuVersion');if(el)el.textContent='Ver '+MINDTASK_APP_VERSION;})();
 
 const AFTER_LOGIN = './index.html';
@@ -2490,7 +2489,7 @@ function batchDelete(){
 })();
 
 Object.assign(window,{
-  toggleHubNav,goHubPage,toggleMenu,doExportData,doExportMarkdown,doImportData,doExportTheme,doImportTheme,resetTheme,
+  toggleHubNav,goHubPage,toggleMenu,closeMenu,doExportData,doExportMarkdown,doImportData,doExportTheme,doImportTheme,resetTheme,
   fitCanvas,centerRoot,expandAll,collapseAll,toggleStatusFilter,togglePriorityFilter,toggleViewMask,
   toggleProjectPanel,toggleCalendarDrawer,newProject,closePanel,epUpdate,clearDue,
   highlightBranchFromPanel,addChildFromPanel,addSiblingFromPanel,deleteFromPanel,
