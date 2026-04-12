@@ -342,7 +342,7 @@ svg.lines{position:absolute;top:0;left:0;overflow:visible;pointer-events:none}
 import { supabase, MINDTASK_STATE_TABLE } from './supabase-client.js';
 
 /** 每次发布/修改页面后递增，便于对照是否已加载最新脚本 */
-const MINDTASK_APP_VERSION = '1.1.05';
+const MINDTASK_APP_VERSION = '1.1.06';
 (()=>{let el=document.getElementById('mindtaskMenuVersion');if(el)el.textContent='Ver '+MINDTASK_APP_VERSION;})();
 
 const AFTER_LOGIN = './index.html';
@@ -1253,6 +1253,7 @@ function renderNode(node,canvas,svg){
   }
   
   el.onmousedown=(e)=>{
+    if(e.button===1)return;
     if(e.target.tagName==='BUTTON'||e.target.tagName==='INPUT'||e.target.tagName==='SELECT'||e.target.closest('.rename-input'))return;
     // Keep node DOM stable for double-click quick edit targets.
     if(e.target.closest('.ntitle')||e.target.closest('.quick-status')||e.target.closest('.quick-priority')||e.target.closest('.t-note-hint')){
@@ -1804,7 +1805,9 @@ function isSyntheticMouseFromTouch(e){
 }
 function panStart(e){
   if(isSyntheticMouseFromTouch(e))return;
-  if(e.target.closest('.node'))return;
+  let midPan=e.button===1;
+  if(!midPan&&e.target.closest('.node'))return;
+  if(midPan)e.preventDefault();
   isPanning=true;panSX=e.clientX;panSY=e.clientY;panOX=panX;panOY=panY;
   let mm=(ev)=>{panX=panOX+(ev.clientX-panSX);panY=panOY+(ev.clientY-panSY);updateCanvasTransform()};
   let mu=()=>{isPanning=false;document.removeEventListener('mousemove',mm);document.removeEventListener('mouseup',mu)};
@@ -1848,6 +1851,7 @@ function dblClickCanvas(e){if(e.target.closest('.node'))return;centerRoot()}
 let blankDown=null;
 document.getElementById('canvasWrap').addEventListener('mousedown',(e)=>{
   if(isSyntheticMouseFromTouch(e)){blankDown=null;return}
+  if(e.button!==0){blankDown=null;return}
   if(e.target.closest('.node')){blankDown=null;return}
   blankDown={x:e.clientX,y:e.clientY};
 });
