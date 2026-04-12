@@ -1,0 +1,1369 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI 今日规划</title>
+  <style>
+    :root {
+      --bg: #eef3f8;
+      --panel: #ffffff;
+      --panel-2: #f7f9fc;
+      --line: #d8e0ea;
+      --text: #18212c;
+      --sub: #5b6775;
+      --accent: #0078d7;
+      --accent-soft: rgba(0, 120, 215, 0.12);
+      --ok: #107c10;
+      --ok-soft: rgba(16, 124, 16, 0.12);
+      --warn: #ff8c00;
+      --warn-soft: rgba(255, 140, 0, 0.12);
+      --danger: #d13438;
+      --danger-soft: rgba(209, 52, 56, 0.12);
+      --purple: #8764b8;
+      --purple-soft: rgba(135, 100, 184, 0.12);
+      --teal: #038387;
+      --radius: 10px;
+      --shadow: 0 8px 20px rgba(14, 30, 54, 0.06);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; font-family: "Segoe UI", "Microsoft YaHei UI", "PingFang SC", sans-serif; color: var(--text); background: linear-gradient(180deg, #f3f6fb 0%, #edf2f7 100%); }
+    button, input { font: inherit; }
+
+    .app {
+      max-width: 1480px;
+      margin: 0 auto;
+      padding: 22px 20px 34px;
+    }
+
+    .header-tile {
+      background: linear-gradient(135deg, rgba(0,120,215,0.95), rgba(32,96,170,0.92));
+      color: #fff;
+      border-radius: 12px;
+      padding: 22px 22px 18px;
+      display: grid;
+      grid-template-columns: 1.7fr 1.25fr;
+      gap: 18px;
+      box-shadow: 0 14px 26px rgba(0, 73, 131, 0.16);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .title-row {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .title-block h1 {
+      margin: 0 0 4px;
+      font-size: 31px;
+      font-weight: 650;
+      letter-spacing: 0.2px;
+    }
+
+    .title-block p {
+      margin: 0;
+      color: rgba(255,255,255,0.82);
+      font-size: 14px;
+    }
+
+    .date-badge {
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 8px;
+      padding: 10px 12px;
+      min-width: 150px;
+    }
+
+    .date-badge .small { font-size: 12px; color: rgba(255,255,255,0.74); }
+    .date-badge .value { margin-top: 4px; font-size: 18px; font-weight: 600; }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .metric-tile {
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.16);
+      border-radius: 10px;
+      padding: 14px 14px 12px;
+      min-height: 92px;
+      backdrop-filter: blur(8px);
+    }
+
+    .metric-tile .label {
+      font-size: 12px;
+      color: rgba(255,255,255,0.78);
+      margin-bottom: 6px;
+    }
+
+    .metric-tile .value {
+      font-size: 22px;
+      font-weight: 650;
+      line-height: 1.2;
+    }
+
+    .metric-tile .desc {
+      margin-top: 6px;
+      font-size: 12px;
+      color: rgba(255,255,255,0.82);
+    }
+
+    .header-actions {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .hero-card {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 10px;
+      padding: 16px;
+      min-height: 124px;
+    }
+
+    .hero-card .eyebrow {
+      font-size: 12px;
+      color: rgba(255,255,255,0.74);
+      margin-bottom: 6px;
+    }
+
+    .hero-card .hero-title {
+      font-size: 21px;
+      font-weight: 650;
+      margin-bottom: 8px;
+    }
+
+    .hero-card .hero-sub {
+      color: rgba(255,255,255,0.9);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .mode-section,
+    .action-section {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 10px;
+      padding: 14px;
+    }
+
+    .section-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      gap: 10px;
+    }
+
+    .section-heading .name {
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.9);
+      letter-spacing: 0.2px;
+    }
+
+    .mode-buttons,
+    .action-buttons,
+    .bottom-actions,
+    .tool-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .btn {
+      border: 1px solid transparent;
+      background: var(--panel-2);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 9px 12px;
+      cursor: pointer;
+      transition: 0.18s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+
+    .btn:hover { transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+    .btn.primary { background: #fff; color: var(--accent); font-weight: 600; }
+    .btn.soft { background: rgba(255,255,255,0.14); color: #fff; border-color: rgba(255,255,255,0.16); }
+    .btn.ghost { background: transparent; border-color: var(--line); color: var(--sub); }
+    .btn.warn { background: var(--warn-soft); color: #915100; }
+    .btn.active { background: #fff; color: var(--accent); font-weight: 600; }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 0.9fr 1.55fr 1.12fr;
+      gap: 18px;
+      margin-top: 18px;
+      align-items: start;
+    }
+
+    .column { display: grid; gap: 16px; }
+
+    .panel {
+      background: var(--panel);
+      border-radius: var(--radius);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 14px 16px 12px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(247,249,252,0.96));
+    }
+
+    .panel-title {
+      font-size: 16px;
+      font-weight: 650;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .panel-subtitle {
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--sub);
+    }
+
+    .panel-body { padding: 14px 16px 16px; }
+
+    .tiny-tag, .status-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      line-height: 1;
+      border: 1px solid transparent;
+    }
+
+    .tiny-tag.blue, .status-tag.blue { background: var(--accent-soft); color: #005da6; }
+    .tiny-tag.green, .status-tag.green { background: var(--ok-soft); color: #106410; }
+    .tiny-tag.orange, .status-tag.orange { background: var(--warn-soft); color: #8a5103; }
+    .tiny-tag.red, .status-tag.red { background: var(--danger-soft); color: #9b2d31; }
+    .tiny-tag.purple, .status-tag.purple { background: var(--purple-soft); color: #64438e; }
+
+    .list { display: grid; gap: 10px; }
+
+    .line-item {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      padding: 10px 0;
+      border-bottom: 1px dashed #e3e9f0;
+    }
+
+    .line-item:last-child { border-bottom: none; padding-bottom: 0; }
+
+    .line-time {
+      min-width: 88px;
+      font-size: 12px;
+      color: var(--sub);
+      font-weight: 600;
+      padding-top: 2px;
+    }
+
+    .line-main { flex: 1; }
+    .line-main .line-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+    .line-main .line-meta { font-size: 12px; color: var(--sub); display: flex; flex-wrap: wrap; gap: 8px; }
+
+    .report-grid { display: grid; gap: 10px; }
+    .report-box {
+      background: var(--panel-2);
+      border: 1px solid #e8edf3;
+      border-left: 4px solid var(--accent);
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .report-box.ok { border-left-color: var(--ok); }
+    .report-box.warn { border-left-color: var(--warn); }
+    .report-box.danger { border-left-color: var(--danger); }
+    .report-box .k { font-size: 12px; color: var(--sub); margin-bottom: 6px; }
+    .report-box .v { font-size: 14px; line-height: 1.6; }
+
+    .task-pool { display: grid; gap: 10px; }
+    .task-item {
+      background: var(--panel-2);
+      border: 1px solid #e7edf5;
+      border-radius: 8px;
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+    }
+    .task-top { display: flex; justify-content: space-between; gap: 12px; }
+    .task-name { font-size: 14px; font-weight: 600; }
+    .task-meta { display: flex; flex-wrap: wrap; gap: 8px; color: var(--sub); font-size: 12px; }
+    .task-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .mini-btn {
+      background: #fff;
+      color: var(--sub);
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 6px 9px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .mini-btn.active-lock { color: var(--accent); border-color: #a5cdf3; background: #f3f8fe; }
+
+    .top3-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .top-card {
+      background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+      border: 1px solid #dfe7f0;
+      border-top: 5px solid var(--accent);
+      border-radius: 10px;
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+      min-height: 218px;
+      cursor: pointer;
+      transition: 0.18s ease;
+    }
+    .top-card:hover { transform: translateY(-2px); }
+    .top-card[data-rank="2"] { border-top-color: var(--teal); }
+    .top-card[data-rank="3"] { border-top-color: var(--purple); }
+
+    .top-card .rank {
+      display: inline-flex;
+      width: 30px;
+      height: 30px;
+      border-radius: 6px;
+      align-items: center;
+      justify-content: center;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 14px;
+    }
+    .top-card[data-rank="2"] .rank { background: rgba(3,131,135,0.12); color: var(--teal); }
+    .top-card[data-rank="3"] .rank { background: var(--purple-soft); color: var(--purple); }
+
+    .top-card-title { font-size: 16px; font-weight: 700; line-height: 1.45; }
+    .top-card-text { font-size: 13px; color: var(--sub); line-height: 1.65; }
+    .pill-row { display: flex; flex-wrap: wrap; gap: 8px; }
+
+    .stage-list { display: grid; gap: 10px; }
+    .stage-item {
+      display: grid;
+      grid-template-columns: 108px 1fr;
+      gap: 12px;
+      background: var(--panel-2);
+      border: 1px solid #e7edf5;
+      border-radius: 9px;
+      padding: 12px;
+    }
+    .stage-head {
+      background: #eef5fd;
+      border-radius: 8px;
+      padding: 10px;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 650;
+      color: var(--accent);
+    }
+    .stage-content .title { font-weight: 650; margin-bottom: 6px; }
+    .stage-content .text { font-size: 13px; color: var(--sub); line-height: 1.65; }
+
+    .tri-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .tri-col {
+      background: var(--panel-2);
+      border: 1px solid #e7edf5;
+      border-radius: 10px;
+      padding: 12px;
+      min-height: 220px;
+    }
+    .tri-col .col-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      font-weight: 650;
+    }
+    .tri-item {
+      border: 1px solid #e4ebf3;
+      background: #fff;
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 9px;
+      display: grid;
+      gap: 7px;
+      cursor: pointer;
+    }
+    .tri-item:last-child { margin-bottom: 0; }
+    .tri-item .title { font-size: 14px; font-weight: 600; }
+    .tri-item .reason { color: var(--sub); font-size: 12px; line-height: 1.6; }
+    .tri-item .ops { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    .tri-item .icon-btn {
+      border: none;
+      background: transparent;
+      color: var(--sub);
+      cursor: pointer;
+      padding: 0;
+      font-size: 13px;
+    }
+
+    .risk-list { display: grid; gap: 10px; }
+    .risk-item {
+      background: #fff8ef;
+      border: 1px solid #f4dfbf;
+      border-left: 4px solid var(--warn);
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .risk-item.high {
+      background: #fff2f2;
+      border-color: #f1c7ca;
+      border-left-color: var(--danger);
+    }
+    .risk-item .risk-title { font-size: 14px; font-weight: 650; margin-bottom: 5px; }
+    .risk-item .risk-text { color: var(--sub); font-size: 13px; line-height: 1.6; }
+
+    .schedule-summary {
+      display: grid;
+      gap: 12px;
+    }
+    .bar-wrap {
+      background: #eaf0f6;
+      border-radius: 999px;
+      height: 10px;
+      overflow: hidden;
+      position: relative;
+    }
+    .bar {
+      position: absolute;
+      top: 0; left: 0; bottom: 0;
+      background: linear-gradient(90deg, var(--accent), #35a0ff);
+      border-radius: 999px;
+    }
+    .bar-segments {
+      display: grid;
+      gap: 8px;
+    }
+    .bar-row { display: flex; justify-content: space-between; font-size: 12px; color: var(--sub); gap: 12px; }
+
+    .timeline {
+      display: grid;
+      gap: 10px;
+    }
+    .time-block {
+      position: relative;
+      display: grid;
+      grid-template-columns: 84px 1fr;
+      gap: 12px;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid #dfe7f0;
+      background: linear-gradient(180deg, #ffffff 0%, #f9fbfd 100%);
+      cursor: grab;
+    }
+    .time-block.fixed { background: linear-gradient(180deg, #f7f1ff 0%, #fbf7ff 100%); border-color: #e5d9f6; }
+    .time-block.core { border-left: 5px solid var(--accent); }
+    .time-block.optional { border-left: 5px solid var(--ok); }
+    .time-block.defer { border-left: 5px solid var(--warn); }
+    .time-block.dragging { opacity: 0.45; }
+
+    .time-label {
+      font-size: 12px;
+      color: var(--sub);
+      font-weight: 650;
+      text-align: center;
+      background: #f2f7fc;
+      border-radius: 8px;
+      padding: 10px 8px;
+    }
+    .block-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+    .block-title { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+    .block-sub { font-size: 12px; color: var(--sub); }
+    .block-note { margin-top: 8px; font-size: 12px; color: var(--sub); line-height: 1.65; }
+    .drag-note { font-size: 12px; color: var(--sub); }
+
+    .detail-panel {
+      background: linear-gradient(180deg, #f7fbff 0%, #ffffff 100%);
+      border-top: 1px solid var(--line);
+      padding: 12px 16px 14px;
+      display: grid;
+      gap: 8px;
+    }
+    .detail-title { font-size: 13px; color: var(--sub); }
+    .detail-content { font-size: 14px; line-height: 1.65; }
+
+    .footer-panel {
+      margin-top: 18px;
+      background: var(--panel);
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      padding: 14px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      position: sticky;
+      bottom: 12px;
+      z-index: 10;
+    }
+
+    .footer-note { color: var(--sub); font-size: 13px; }
+
+    .toast {
+      position: fixed;
+      right: 22px;
+      bottom: 26px;
+      background: rgba(24, 33, 44, 0.95);
+      color: #fff;
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 14px;
+      opacity: 0;
+      transform: translateY(8px);
+      pointer-events: none;
+      transition: 0.22s ease;
+      z-index: 50;
+      box-shadow: 0 12px 24px rgba(12,18,30,0.2);
+      max-width: 340px;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    .muted { color: var(--sub); }
+    .hidden { display: none !important; }
+
+    @media (max-width: 1260px) {
+      .main-grid { grid-template-columns: 1fr; }
+      .header-tile { grid-template-columns: 1fr; }
+      .top3-grid, .tri-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <section class="header-tile">
+      <div>
+        <div class="title-row">
+          <div class="title-block">
+            <h1>AI 今日规划</h1>
+            <p>把今日日程、最近日报和任务池，转成今天真正可执行的计划。</p>
+          </div>
+          <div class="date-badge">
+            <div class="small">当前日期</div>
+            <div class="value">2026-04-12 · 周日</div>
+          </div>
+        </div>
+
+        <div class="summary-grid">
+          <div class="metric-tile">
+            <div class="label">今日主题</div>
+            <div class="value" id="metric-theme">推进主线任务</div>
+            <div class="desc" id="metric-theme-desc">上午完成结构设计，下午处理对齐与收尾。</div>
+          </div>
+          <div class="metric-tile">
+            <div class="label">今日负载</div>
+            <div class="value" id="metric-load">偏满</div>
+            <div class="desc" id="metric-load-desc">建议只保留 3 个核心结果，减少切换。</div>
+          </div>
+          <div class="metric-tile">
+            <div class="label">专注时间</div>
+            <div class="value" id="metric-focus">4.5h</div>
+            <div class="desc">已预留 1.2h 缓冲，不建议排满整天。</div>
+          </div>
+          <div class="metric-tile">
+            <div class="label">当前模式</div>
+            <div class="value" id="metric-mode">推进模式</div>
+            <div class="desc" id="metric-mode-desc">优先保证主线推进，再处理必要沟通。</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <div class="hero-card">
+          <div class="eyebrow">今日一句话</div>
+          <div class="hero-title" id="hero-title">今天以 AI 规划页落地为主，压缩分散事务。</div>
+          <div class="hero-sub" id="hero-sub">先拿下页面结构与时间安排表，再在下午统一样式、确认联动逻辑，避免反复切换。</div>
+        </div>
+
+        <div class="mode-section">
+          <div class="section-heading">
+            <div class="name">规划模式</div>
+            <span class="tiny-tag blue">可即时切换</span>
+          </div>
+          <div class="mode-buttons">
+            <button class="btn soft mode-btn active" data-mode="focus">推进模式</button>
+            <button class="btn soft mode-btn" data-mode="clear">清障模式</button>
+            <button class="btn soft mode-btn" data-mode="sprint">冲刺模式</button>
+          </div>
+        </div>
+
+        <div class="action-section">
+          <div class="section-heading">
+            <div class="name">快速操作</div>
+            <span class="tiny-tag orange">示例交互</span>
+          </div>
+          <div class="action-buttons">
+            <button class="btn primary" id="btn-regenerate">重新规划</button>
+            <button class="btn soft" id="btn-core-only">只保留核心任务</button>
+            <button class="btn soft" id="btn-save-header">保存计划</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="main-grid">
+      <div class="column">
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">今日日程</div>
+              <div class="panel-subtitle">固定安排与时间硬约束</div>
+            </div>
+            <span class="status-tag purple" id="meeting-count">3 个固定安排</span>
+          </div>
+          <div class="panel-body">
+            <div class="list" id="schedule-list"></div>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">日报摘要</div>
+              <div class="panel-subtitle">昨天的推进、阻塞与风险</div>
+            </div>
+            <span class="status-tag orange">最近一篇日报</span>
+          </div>
+          <div class="panel-body">
+            <div class="report-grid" id="report-grid"></div>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">候选任务池</div>
+              <div class="panel-subtitle">可纳入今日计划的候选任务</div>
+            </div>
+            <span class="status-tag blue" id="task-pool-count">5 项候选</span>
+          </div>
+          <div class="panel-body">
+            <div class="task-pool" id="task-pool"></div>
+          </div>
+        </article>
+      </div>
+
+      <div class="column">
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">今日 Top 3</div>
+              <div class="panel-subtitle">今天真正值得优先完成的三件事</div>
+            </div>
+            <span class="status-tag blue">结果导向</span>
+          </div>
+          <div class="panel-body">
+            <div class="top3-grid" id="top3-grid"></div>
+          </div>
+          <div class="detail-panel">
+            <div class="detail-title">任务解释</div>
+            <div class="detail-content" id="task-detail">点击任意任务卡片，查看它为什么被排进今天，以及建议在什么时间做。</div>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">执行顺序</div>
+              <div class="panel-subtitle">按精力阶段而非死板排序</div>
+            </div>
+            <span class="status-tag green">今日节奏</span>
+          </div>
+          <div class="panel-body">
+            <div class="stage-list" id="stage-list"></div>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">做取舍，而不是塞满</div>
+              <div class="panel-subtitle">必做 / 可选 / 延后</div>
+            </div>
+            <span class="status-tag orange">可人工删改</span>
+          </div>
+          <div class="panel-body">
+            <div class="tri-grid">
+              <div class="tri-col">
+                <div class="col-head">
+                  <span>必须完成</span>
+                  <span class="tiny-tag blue" id="must-count">3 项</span>
+                </div>
+                <div id="must-list"></div>
+              </div>
+              <div class="tri-col">
+                <div class="col-head">
+                  <span>有余力再做</span>
+                  <span class="tiny-tag green" id="optional-count">2 项</span>
+                </div>
+                <div id="optional-list"></div>
+              </div>
+              <div class="tri-col">
+                <div class="col-head">
+                  <span>建议延后</span>
+                  <span class="tiny-tag orange" id="defer-count">1 项</span>
+                </div>
+                <div id="defer-list"></div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">风险提醒</div>
+              <div class="panel-subtitle">AI 认为今天最容易失控的地方</div>
+            </div>
+            <span class="status-tag red">提前规避</span>
+          </div>
+          <div class="panel-body">
+            <div class="risk-list" id="risk-list"></div>
+          </div>
+        </article>
+      </div>
+
+      <div class="column">
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">今日时间安排表</div>
+              <div class="panel-subtitle">拖动卡片可调整顺序</div>
+            </div>
+            <span class="status-tag blue" id="timeline-summary">时间块 7 个</span>
+          </div>
+          <div class="panel-body">
+            <div class="tool-actions" style="margin-bottom: 12px;">
+              <button class="btn ghost" id="btn-sort-time">按时间重排</button>
+              <button class="btn ghost" id="btn-compress">压缩计划</button>
+              <button class="btn ghost" id="btn-rerank">一键重排剩余任务</button>
+            </div>
+            <div class="timeline" id="timeline"></div>
+            <div class="drag-note" style="margin-top: 12px;">提示：固定安排与 AI 建议任务使用不同颜色区分，核心任务用蓝色左边框高亮。</div>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">时间负载</div>
+              <div class="panel-subtitle">默认保留 15%-25% 缓冲</div>
+            </div>
+            <span class="status-tag green" id="buffer-tag">缓冲 1.2h</span>
+          </div>
+          <div class="panel-body">
+            <div class="schedule-summary">
+              <div class="bar-wrap"><div class="bar" id="load-bar" style="width: 72%"></div></div>
+              <div class="bar-segments" id="bar-rows"></div>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">快速调整</div>
+              <div class="panel-subtitle">适合开工前做最后确认</div>
+            </div>
+            <span class="status-tag purple">轻量操作</span>
+          </div>
+          <div class="panel-body">
+            <div class="tool-actions">
+              <button class="btn ghost" id="btn-view-core">只看核心任务</button>
+              <button class="btn ghost" id="btn-reset-view">恢复完整视图</button>
+              <button class="btn ghost" id="btn-mark-done">标记首项完成</button>
+              <button class="btn ghost" id="btn-delay-one">延后一个低优先项</button>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="footer-panel">
+      <div>
+        <div style="font-size: 15px; font-weight: 650; margin-bottom: 4px;">下一步：把这份规划写回你的今日工作流</div>
+        <div class="footer-note">把 AI 规划变成真正执行计划：写入今日 Todo、同步到日报草稿、保存计划快照。</div>
+      </div>
+      <div class="bottom-actions">
+        <button class="btn primary" id="btn-write-todo">写入今日 Todo</button>
+        <button class="btn" id="btn-sync-report">同步到日报草稿</button>
+        <button class="btn" id="btn-save-snapshot">保存计划快照</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const baseSchedule = [
+      { time: '09:30 - 10:00', title: '站会 / 对齐今天范围', meta: ['固定安排', '30 分钟'], desc: '快速确认今天页面产出边界，避免后续返工。' },
+      { time: '14:00 - 15:00', title: '需求讨论 / AI 页面信息层级', meta: ['固定安排', '1 小时'], desc: '下午会议会打断连续深度工作，重要任务应尽量放上午。' },
+      { time: '16:30 - 17:00', title: '跟进反馈 / 收集修改意见', meta: ['固定安排', '30 分钟'], desc: '适合放在收尾阶段，不建议放大块核心任务。' }
+    ];
+
+    const reportSummary = [
+      { type: 'ok', key: '昨日推进', value: '完成 AI 规划页的页面目标与模块拆解，明确需要突出 Top 3、取舍区和时间安排表。' },
+      { type: 'danger', key: '当前阻塞', value: '信息层级与卡片优先级还不够直观，容易让页面看起来像概念稿而不是工作台。' },
+      { type: 'warn', key: '风险事项', value: '如果时间安排表和任务区没有明显主次关系，页面会显得过于分散。' },
+      { type: 'ok', key: '昨日写下的明日 Top3', value: '完成 AI 规划页结构、梳理时间安排表字段、统一卡片视觉语言。' }
+    ];
+
+    const candidateTasks = [
+      { id: 'pool-1', name: '设计 AI 规划页结构', source: '项目任务', priority: '高', deadline: '今天', duration: '1.5h', status: '进行中', locked: true, selected: true },
+      { id: 'pool-2', name: '梳理时间安排表字段', source: '日报延续', priority: '高', deadline: '今天', duration: '1h', status: '未开始', locked: false, selected: true },
+      { id: 'pool-3', name: '统一卡片视觉规范', source: '项目任务', priority: '中', deadline: '明天前', duration: '1h', status: '未开始', locked: false, selected: true },
+      { id: 'pool-4', name: '整理日报与规划页联动逻辑', source: 'AI 建议', priority: '中', deadline: '本周', duration: '40m', status: '未开始', locked: false, selected: true },
+      { id: 'pool-5', name: '跟进一个外部反馈事项', source: '日程页', priority: '中', deadline: '今天', duration: '30m', status: '等待中', locked: false, selected: false },
+      { id: 'pool-6', name: '补充一版空状态文案', source: 'AI 建议', priority: '低', deadline: '本周', duration: '20m', status: '未开始', locked: false, selected: false }
+    ];
+
+    const modes = {
+      focus: {
+        modeName: '推进模式',
+        theme: '推进主线任务',
+        themeDesc: '上午完成结构设计，下午处理对齐与收尾。',
+        load: '偏满',
+        loadDesc: '建议只保留 3 个核心结果，减少切换。',
+        focusTime: '4.5h',
+        modeDesc: '优先保证主线推进，再处理必要沟通。',
+        heroTitle: '今天以 AI 规划页落地为主，压缩分散事务。',
+        heroSub: '先拿下页面结构与时间安排表，再在下午统一样式、确认联动逻辑，避免反复切换。',
+        top3: [
+          { title: '完成 AI 规划页结构初稿', reason: '这是今天的主线结果，昨天已完成框架设计，适合上午整块专注时间推进。', duration: '1.5h', time: '10:00 - 11:30', outcome: '结构初稿 + 模块优先级清单', level: 'P1', detail: '来源：项目任务 + 昨日日报。建议上午集中完成，因为下午会议会打断思路。' },
+          { title: '梳理时间安排表字段与规则', reason: '时间安排表是这页的第二核心模块，需要尽早明确字段和显示粒度。', duration: '1h', time: '11:30 - 12:20', outcome: '字段定义 + 时间块展示规则', level: 'P1', detail: '来源：日报中的明日 Top3。建议紧接在结构设计之后完成，避免重复切换语境。' },
+          { title: '统一卡片视觉语言', reason: '页面已经有较多模块，需要在下午统一卡片样式，否则像拼出来的概念稿。', duration: '1h', time: '15:10 - 16:10', outcome: '卡片规范 + 状态标签样式', level: 'P2', detail: '来源：项目任务。放在会议之后处理，适合中强度工作。' }
+        ],
+        stages: [
+          { stage: '上午', title: '深度工作', text: '先完成页面结构与时间安排表字段，拿下两项最关键结果。避免把时间切碎。' },
+          { stage: '下午前半', title: '沟通清障', text: '利用需求讨论确认信息层级，顺手处理依赖项和外部反馈。' },
+          { stage: '下午后半', title: '统一与收尾', text: '回到页面视觉规范和联动逻辑，保证今天结束前形成完整版本。' }
+        ],
+        buckets: {
+          must: [
+            { title: '完成 AI 规划页结构初稿', reason: '主线任务；今天有整块时间；可直接产出结果。', tag: '1.5h' },
+            { title: '梳理时间安排表字段与规则', reason: '核心模块；决定后续是否可落地。', tag: '1h' },
+            { title: '统一卡片视觉语言', reason: '避免页面像多个模块简单拼接。', tag: '1h' }
+          ],
+          optional: [
+            { title: '整理日报与规划页联动逻辑', reason: '今天做完更完整，但可放到收尾阶段。', tag: '40m' },
+            { title: '跟进一个反馈事项', reason: '只需短时间，但不应占上午主时间。', tag: '30m' }
+          ],
+          defer: [
+            { title: '补充空状态文案', reason: '价值存在，但不应抢占今天的主线时间。', tag: '20m' }
+          ]
+        },
+        risks: [
+          { level: 'high', title: '下午会议会切碎节奏', text: '如果上午没有拿下结构和字段，下午很容易进入来回切换，导致主线任务被拖到明天。' },
+          { level: 'mid', title: '计划略偏满', text: '今天已经安排了 3 个核心结果，建议把低价值补充项放到缓冲时间或明天。' },
+          { level: 'mid', title: '视觉统一容易被低估', text: '如果不留专门时间做样式规范，页面整体会显得不够像真正产品。' }
+        ],
+        timeline: [
+          { time: '09:30 - 10:00', title: '站会 / 对齐今天范围', type: '固定安排', reason: '先确认范围，再开始深度工作。', result: '统一今天产出边界', flex: '固定', category: 'fixed' },
+          { time: '10:00 - 11:30', title: '完成 AI 规划页结构初稿', type: '深度工作', reason: '上午是最完整的专注时段，适合主线任务。', result: '完成结构草案', flex: '重要', category: 'core' },
+          { time: '11:30 - 12:20', title: '梳理时间安排表字段与规则', type: '深度工作', reason: '紧接结构设计完成，减少思路切换。', result: '完成字段定义', flex: '重要', category: 'core' },
+          { time: '14:00 - 15:00', title: '需求讨论 / AI 页面信息层级', type: '固定安排', reason: '用会议确认页面层级，降低后续返工。', result: '确认重点区域', flex: '固定', category: 'fixed' },
+          { time: '15:10 - 16:10', title: '统一卡片视觉语言', type: '中强度工作', reason: '会议后适合做规范与整理。', result: '统一卡片体系', flex: '可调', category: 'core' },
+          { time: '16:10 - 16:30', title: '整理日报与规划页联动逻辑', type: '收尾整理', reason: '放在收尾阶段更顺手。', result: '联动逻辑说明', flex: '可调', category: 'optional' },
+          { time: '16:30 - 17:00', title: '跟进反馈 / 收集修改意见', type: '固定安排', reason: '适合放在收尾前确认外部信息。', result: '拿到反馈结论', flex: '固定', category: 'fixed' }
+        ],
+        loadRows: [
+          ['总可用时间', '6.8h'],
+          ['固定安排', '2.0h'],
+          ['已安排任务', '3.6h'],
+          ['缓冲时间', '1.2h']
+        ],
+        loadPercent: 74,
+        buffer: '缓冲 1.2h'
+      },
+      clear: {
+        modeName: '清障模式',
+        theme: '先解阻塞，再推进',
+        themeDesc: '减少“做一半卡住”的情况，优先恢复流动性。',
+        load: '正常',
+        loadDesc: '把核心目标缩到 2 个，优先处理依赖和确认。',
+        focusTime: '3.8h',
+        modeDesc: '先消除阻塞，再安排可持续推进的工作。',
+        heroTitle: '今天先把卡点清掉，让后续两天更顺。',
+        heroSub: '优先确认信息层级、联动逻辑和外部反馈，再把结构初稿收口，不追求做很多，只追求恢复流动性。',
+        top3: [
+          { title: '确认 AI 页面信息层级', reason: '这是所有模块布局的前置条件，不先确认会让后续设计反复返工。', duration: '1h', time: '10:00 - 11:00', outcome: '确认页面主次与模块顺序', level: 'P1', detail: '来源：当前阻塞。优先解除不确定性，再决定其他模块细节。' },
+          { title: '整理日报与规划页联动逻辑', reason: '联动清楚后，很多文案和状态展示会自然顺下来。', duration: '50m', time: '11:10 - 12:00', outcome: '输入输出闭环说明', level: 'P1', detail: '来源：AI 建议。属于清障型任务，价值在于减少后续反复。' },
+          { title: '跟进外部反馈并收口结构初稿', reason: '先拿反馈，再做必要调整，比盲目继续画页面更高效。', duration: '1h', time: '15:10 - 16:10', outcome: '结构版收口 + 明确下一步', level: 'P2', detail: '来源：日程页 + 项目任务。适合下午处理。' }
+        ],
+        stages: [
+          { stage: '上午', title: '确认与解阻塞', text: '优先确认页面信息层级、联动逻辑和关键依赖，不急着往下堆内容。' },
+          { stage: '下午前半', title: '沟通与反馈', text: '利用会议和反馈窗口把不确定项缩小，避免继续凭空假设。' },
+          { stage: '下午后半', title: '收口结构', text: '把已确认的信息转成结构版，形成清晰的下一步。' }
+        ],
+        buckets: {
+          must: [
+            { title: '确认 AI 页面信息层级', reason: '前置条件不清，其他任务都容易返工。', tag: '1h' },
+            { title: '整理日报与规划页联动逻辑', reason: '能显著降低页面逻辑混乱。', tag: '50m' }
+          ],
+          optional: [
+            { title: '完成结构初稿收口', reason: '在关键阻塞解除后推进更稳。', tag: '1h' },
+            { title: '统一卡片视觉语言', reason: '可以晚一点做，不必先做。', tag: '1h' }
+          ],
+          defer: [
+            { title: '补充空状态文案', reason: '清障模式下不宜把精力分给边缘细节。', tag: '20m' },
+            { title: '细化时间安排表视觉表现', reason: '先定逻辑，再优化表现。', tag: '30m' }
+          ]
+        },
+        risks: [
+          { level: 'high', title: '容易重新掉回“继续做页面”', text: '如果没有先清掉信息层级和联动逻辑，继续推进视觉稿会造成高返工。' },
+          { level: 'mid', title: '外部反馈可能延迟', text: '建议在等待期间先整理可控的内部逻辑，不要整块时间空等。' },
+          { level: 'mid', title: '产出感会较弱', text: '清障模式不一定做很多页面，但会明显降低接下来两天的推进阻力。' }
+        ],
+        timeline: [
+          { time: '09:30 - 10:00', title: '站会 / 明确今日阻塞项', type: '固定安排', reason: '用短会先把今天最值得解除的卡点说清。', result: '确认今日卡点优先级', flex: '固定', category: 'fixed' },
+          { time: '10:00 - 11:00', title: '确认 AI 页面信息层级', type: '清障任务', reason: '这是所有布局决策的前置条件。', result: '层级顺序结论', flex: '重要', category: 'core' },
+          { time: '11:10 - 12:00', title: '整理日报与规划页联动逻辑', type: '清障任务', reason: '先把输入输出闭环写清楚。', result: '闭环说明', flex: '重要', category: 'core' },
+          { time: '14:00 - 15:00', title: '需求讨论 / 对齐依赖项', type: '固定安排', reason: '会议阶段重点确认依赖，不求做完所有细节。', result: '依赖清单', flex: '固定', category: 'fixed' },
+          { time: '15:10 - 16:10', title: '跟进反馈并收口结构初稿', type: '收口任务', reason: '在依赖基本清晰后形成较稳定版本。', result: '结构版收口', flex: '可调', category: 'core' },
+          { time: '16:30 - 17:00', title: '跟进反馈 / 收集修改意见', type: '固定安排', reason: '把今天解除的关键问题记录下来。', result: '确认是否继续推进', flex: '固定', category: 'fixed' }
+        ],
+        loadRows: [
+          ['总可用时间', '6.8h'],
+          ['固定安排', '2.0h'],
+          ['已安排任务', '2.9h'],
+          ['缓冲时间', '1.9h']
+        ],
+        loadPercent: 62,
+        buffer: '缓冲 1.9h'
+      },
+      sprint: {
+        modeName: '冲刺模式',
+        theme: '只为交付让路',
+        themeDesc: '砍掉边缘事项，把时间给最关键结果。',
+        load: '过载',
+        loadDesc: '当前节奏非常满，只适合保留 2-3 个最关键任务。',
+        focusTime: '5.2h',
+        modeDesc: '用最少切换完成最关键交付。',
+        heroTitle: '今天进入冲刺：只保留会影响交付的任务。',
+        heroSub: '所有低优先和润色项都先让路，聚焦结构、时间安排表和一版可展示的整体界面。',
+        top3: [
+          { title: '完成可展示版 AI 规划页', reason: '今天的目标不是继续讨论，而是做出能展示、能评估的完整页面。', duration: '2h', time: '10:00 - 12:00', outcome: '完整页面一版', level: 'P0', detail: '来源：交付导向。上午直接完成最核心页面组合，不拆碎。' },
+          { title: '补齐时间安排表与取舍区', reason: '这两块决定页面是否有真实工作台价值，不能缺。', duration: '1.2h', time: '15:00 - 16:10', outcome: '时间块 + 必做/可选/延后完整呈现', level: 'P1', detail: '来源：核心设计原则。冲刺模式下必须直接补齐关键模块。' },
+          { title: '收口顶部摘要与操作区', reason: '没有顶部摘要和回写动作，页面就缺少“今日工作台”的完成感。', duration: '40m', time: '16:10 - 16:50', outcome: '形成闭环感', level: 'P1', detail: '来源：页面闭环需要。放在最后快速完成。' }
+        ],
+        stages: [
+          { stage: '上午', title: '连续冲刺', text: '把 2 小时整块给完整页面，禁止插入低价值杂事。' },
+          { stage: '下午前半', title: '保留必要对齐', text: '只接受会直接影响交付的沟通，其他全部后移。' },
+          { stage: '下午后半', title: '快速收口', text: '补齐时间安排表、取舍区和顶部摘要，形成可展示的一版。' }
+        ],
+        buckets: {
+          must: [
+            { title: '完成可展示版 AI 规划页', reason: '最关键交付，不能拆碎。', tag: '2h' },
+            { title: '补齐时间安排表与取舍区', reason: '缺这两块就不完整。', tag: '1.2h' },
+            { title: '收口顶部摘要与操作区', reason: '必须让页面形成闭环。', tag: '40m' }
+          ],
+          optional: [
+            { title: '统一卡片视觉细节', reason: '在核心页面成型后再做。', tag: '30m' }
+          ],
+          defer: [
+            { title: '补充空状态文案', reason: '冲刺日不做边缘项。', tag: '20m' },
+            { title: '整理日报与规划页联动说明', reason: '可以放到明天补文档。', tag: '40m' },
+            { title: '处理非关键反馈', reason: '除非直接影响交付，否则全部延后。', tag: '30m' }
+          ]
+        },
+        risks: [
+          { level: 'high', title: '最容易被低价值打断', text: '冲刺模式最大风险不是做不完，而是被零散任务打断。今天任何不影响交付的事项都应后移。' },
+          { level: 'high', title: '计划过满', text: '当前模式已经逼近满载，建议严格保留缓冲，防止一个任务超时后整体崩盘。' },
+          { level: 'mid', title: '容易忽略收尾动作', text: '冲刺时只盯中间内容，常常忘记顶部摘要、按钮和状态说明，导致页面不完整。' }
+        ],
+        timeline: [
+          { time: '09:30 - 10:00', title: '站会 / 锁定今天交付边界', type: '固定安排', reason: '先统一“今天必须有的一版”是什么。', result: '锁定交付范围', flex: '固定', category: 'fixed' },
+          { time: '10:00 - 12:00', title: '完成可展示版 AI 规划页', type: '冲刺任务', reason: '上午整块时间直接给最关键交付。', result: '完成页面一版', flex: '重要', category: 'core' },
+          { time: '14:00 - 15:00', title: '需求讨论 / 仅确认影响交付的问题', type: '固定安排', reason: '只接受会改变交付的输入。', result: '确认关键差异点', flex: '固定', category: 'fixed' },
+          { time: '15:00 - 16:10', title: '补齐时间安排表与取舍区', type: '冲刺任务', reason: '这是页面最能体现价值的模块。', result: '工作台核心区完整', flex: '重要', category: 'core' },
+          { time: '16:10 - 16:50', title: '收口顶部摘要与操作区', type: '收尾任务', reason: '避免页面只完成中间部分。', result: '形成可展示闭环', flex: '可调', category: 'core' },
+          { time: '16:50 - 17:00', title: '留 10 分钟缓冲', type: '缓冲', reason: '防止前序任务超时。', result: '保护节奏', flex: '可删', category: 'optional' }
+        ],
+        loadRows: [
+          ['总可用时间', '6.8h'],
+          ['固定安排', '2.0h'],
+          ['已安排任务', '4.0h'],
+          ['缓冲时间', '0.8h']
+        ],
+        loadPercent: 88,
+        buffer: '缓冲 0.8h'
+      }
+    };
+
+    let currentMode = 'focus';
+    let coreOnly = false;
+    let timelineData = [];
+    let dragIndex = null;
+
+    function $(selector) { return document.querySelector(selector); }
+    function el(tag, className, text) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (text !== undefined) node.textContent = text;
+      return node;
+    }
+
+    function showToast(text) {
+      const toast = $('#toast');
+      toast.textContent = text;
+      toast.classList.add('show');
+      clearTimeout(showToast.timer);
+      showToast.timer = setTimeout(() => toast.classList.remove('show'), 2200);
+    }
+
+    function renderStaticPanels() {
+      $('#meeting-count').textContent = `${baseSchedule.length} 个固定安排`;
+      const scheduleList = $('#schedule-list');
+      scheduleList.innerHTML = '';
+      baseSchedule.forEach(item => {
+        const wrap = el('div', 'line-item');
+        const time = el('div', 'line-time', item.time);
+        const main = el('div', 'line-main');
+        const title = el('div', 'line-title', item.title);
+        const meta = el('div', 'line-meta');
+        item.meta.forEach(m => meta.appendChild(el('span', '', m)));
+        const desc = el('div', 'line-meta');
+        desc.style.marginTop = '6px';
+        desc.textContent = item.desc;
+        main.append(title, meta, desc);
+        wrap.append(time, main);
+        scheduleList.appendChild(wrap);
+      });
+
+      const reportGrid = $('#report-grid');
+      reportGrid.innerHTML = '';
+      reportSummary.forEach(item => {
+        const box = el('div', `report-box ${item.type}`);
+        box.append(el('div', 'k', item.key), el('div', 'v', item.value));
+        reportGrid.appendChild(box);
+      });
+
+      renderTaskPool();
+    }
+
+    function renderTaskPool() {
+      const pool = $('#task-pool');
+      pool.innerHTML = '';
+      const visibleTasks = candidateTasks.filter(t => coreOnly ? (t.priority === '高' || t.locked) : true);
+      $('#task-pool-count').textContent = `${visibleTasks.length} 项候选`;
+      visibleTasks.forEach(task => {
+        const item = el('div', 'task-item');
+        const top = el('div', 'task-top');
+        const left = el('div');
+        const name = el('div', 'task-name', task.name);
+        const meta = el('div', 'task-meta');
+        [task.source, `优先级 ${task.priority}`, `截止 ${task.deadline}`, `时长 ${task.duration}`, task.status].forEach(m => meta.appendChild(el('span', '', m)));
+        left.append(name, meta);
+
+        const checkWrap = el('label', 'tiny-tag ' + (task.selected ? 'blue' : 'orange'));
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = task.selected;
+        checkbox.addEventListener('change', () => {
+          task.selected = checkbox.checked;
+          renderTaskPool();
+          showToast(checkbox.checked ? `已纳入：${task.name}` : `已从候选中移除：${task.name}`);
+        });
+        checkWrap.append(checkbox, document.createTextNode(task.selected ? '已纳入' : '暂不考虑'));
+        top.append(left, checkWrap);
+
+        const actions = el('div', 'task-actions');
+        const lockBtn = el('button', 'mini-btn' + (task.locked ? ' active-lock' : ''), task.locked ? '已锁定' : '锁定任务');
+        lockBtn.addEventListener('click', () => {
+          task.locked = !task.locked;
+          renderTaskPool();
+          showToast(task.locked ? `已锁定：${task.name}` : `已取消锁定：${task.name}`);
+        });
+        const tag = el('span', 'tiny-tag ' + (task.priority === '高' ? 'blue' : task.priority === '中' ? 'green' : 'orange'), `来源：${task.source}`);
+        actions.append(lockBtn, tag);
+
+        item.append(top, actions);
+        pool.appendChild(item);
+      });
+    }
+
+    function renderMode(modeKey) {
+      currentMode = modeKey;
+      const data = modes[modeKey];
+
+      document.querySelectorAll('.mode-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.mode === modeKey);
+      });
+
+      $('#metric-theme').textContent = data.theme;
+      $('#metric-theme-desc').textContent = data.themeDesc;
+      $('#metric-load').textContent = data.load;
+      $('#metric-load-desc').textContent = data.loadDesc;
+      $('#metric-focus').textContent = data.focusTime;
+      $('#metric-mode').textContent = data.modeName;
+      $('#metric-mode-desc').textContent = data.modeDesc;
+      $('#hero-title').textContent = data.heroTitle;
+      $('#hero-sub').textContent = data.heroSub;
+
+      renderTop3(data.top3);
+      renderStages(data.stages);
+      renderBuckets(data.buckets);
+      renderRisks(data.risks);
+      timelineData = JSON.parse(JSON.stringify(data.timeline));
+      renderTimeline();
+      renderLoad(data);
+      showTaskDetail(data.top3[0].detail);
+    }
+
+    function renderTop3(items) {
+      const box = $('#top3-grid');
+      box.innerHTML = '';
+      items.forEach((item, idx) => {
+        const card = el('div', 'top-card');
+        card.dataset.rank = String(idx + 1);
+        const rank = el('div', 'rank', String(idx + 1));
+        const title = el('div', 'top-card-title', item.title);
+        const text = el('div', 'top-card-text', item.reason);
+        const pills = el('div', 'pill-row');
+        pills.append(
+          tagNode(item.level === 'P0' ? '最高优先' : item.level, item.level === 'P0' ? 'red' : 'blue'),
+          tagNode(item.duration, 'green'),
+          tagNode(item.time, 'purple')
+        );
+        const outcome = el('div', 'top-card-text');
+        outcome.innerHTML = `<strong style="color:#18212c;">预期产出：</strong>${item.outcome}`;
+        card.append(rank, title, text, pills, outcome);
+        card.addEventListener('click', () => showTaskDetail(item.detail));
+        box.appendChild(card);
+      });
+    }
+
+    function renderStages(items) {
+      const box = $('#stage-list');
+      box.innerHTML = '';
+      items.forEach(item => {
+        const row = el('div', 'stage-item');
+        const head = el('div', 'stage-head', item.stage);
+        const content = el('div', 'stage-content');
+        content.append(el('div', 'title', item.title), el('div', 'text', item.text));
+        row.append(head, content);
+        box.appendChild(row);
+      });
+    }
+
+    function tagNode(text, color) {
+      return el('span', `tiny-tag ${color}`, text);
+    }
+
+    function renderBuckets(buckets) {
+      renderTriList('#must-list', buckets.must, 'must');
+      renderTriList('#optional-list', buckets.optional, 'optional');
+      renderTriList('#defer-list', buckets.defer, 'defer');
+      $('#must-count').textContent = `${buckets.must.length} 项`;
+      $('#optional-count').textContent = `${buckets.optional.length} 项`;
+      $('#defer-count').textContent = `${buckets.defer.length} 项`;
+    }
+
+    function renderTriList(selector, items, kind) {
+      const box = $(selector);
+      box.innerHTML = '';
+      items.forEach((item, idx) => {
+        const wrap = el('div', 'tri-item');
+        wrap.append(el('div', 'title', item.title), el('div', 'reason', item.reason));
+        const ops = el('div', 'ops');
+        ops.append(tagNode(item.tag, kind === 'must' ? 'blue' : kind === 'optional' ? 'green' : 'orange'));
+        const remove = el('button', 'icon-btn', '移出');
+        remove.addEventListener('click', (e) => {
+          e.stopPropagation();
+          items.splice(idx, 1);
+          renderBuckets(modes[currentMode].buckets);
+          showToast(`已移出：${item.title}`);
+        });
+        ops.appendChild(remove);
+        wrap.appendChild(ops);
+        wrap.addEventListener('click', () => showTaskDetail(`${item.title}：${item.reason}`));
+        box.appendChild(wrap);
+      });
+    }
+
+    function renderRisks(items) {
+      const box = $('#risk-list');
+      box.innerHTML = '';
+      items.forEach(item => {
+        const wrap = el('div', `risk-item ${item.level === 'high' ? 'high' : ''}`);
+        wrap.append(el('div', 'risk-title', item.title), el('div', 'risk-text', item.text));
+        box.appendChild(wrap);
+      });
+    }
+
+    function renderTimeline() {
+      const box = $('#timeline');
+      box.innerHTML = '';
+      const visible = timelineData.filter(item => {
+        if (!coreOnly) return true;
+        return item.category === 'fixed' || item.category === 'core';
+      });
+      $('#timeline-summary').textContent = `时间块 ${visible.length} 个`;
+
+      visible.forEach((item, index) => {
+        const wrap = el('div', `time-block ${item.category}`);
+        wrap.draggable = true;
+        wrap.dataset.index = String(index);
+
+        wrap.addEventListener('dragstart', () => {
+          dragIndex = index;
+          wrap.classList.add('dragging');
+        });
+        wrap.addEventListener('dragend', () => wrap.classList.remove('dragging'));
+        wrap.addEventListener('dragover', (e) => e.preventDefault());
+        wrap.addEventListener('drop', (e) => {
+          e.preventDefault();
+          if (dragIndex === null || dragIndex === index) return;
+          const fullVisible = timelineData.filter(i => coreOnly ? (i.category === 'fixed' || i.category === 'core') : true);
+          const draggedItem = fullVisible[dragIndex];
+          const targetItem = fullVisible[index];
+          const draggedRealIndex = timelineData.indexOf(draggedItem);
+          const targetRealIndex = timelineData.indexOf(targetItem);
+          timelineData.splice(draggedRealIndex, 1);
+          timelineData.splice(targetRealIndex, 0, draggedItem);
+          renderTimeline();
+          showToast('已调整时间块顺序');
+        });
+
+        const left = el('div', 'time-label', item.time);
+        const right = el('div');
+        const head = el('div', 'block-head');
+        const titles = el('div');
+        titles.append(el('div', 'block-title', item.title), el('div', 'block-sub', `${item.type} · ${item.result}`));
+        const tags = el('div', 'pill-row');
+        tags.append(
+          tagNode(item.flex, item.flex === '固定' ? 'purple' : item.flex === '重要' ? 'blue' : item.flex === '可调' ? 'green' : 'orange'),
+          tagNode(item.category === 'fixed' ? '固定日程' : item.category === 'core' ? '核心任务' : item.category === 'optional' ? '弹性任务' : '可延后', item.category === 'fixed' ? 'purple' : item.category === 'core' ? 'blue' : item.category === 'optional' ? 'green' : 'orange')
+        );
+        head.append(titles, tags);
+        const note = el('div', 'block-note', item.reason);
+        right.append(head, note);
+        wrap.append(left, right);
+        wrap.addEventListener('click', () => showTaskDetail(`${item.title}：${item.reason}。预期结果：${item.result}`));
+        box.appendChild(wrap);
+      });
+    }
+
+    function renderLoad(data) {
+      $('#load-bar').style.width = `${data.loadPercent}%`;
+      $('#buffer-tag').textContent = data.buffer;
+      const rows = $('#bar-rows');
+      rows.innerHTML = '';
+      data.loadRows.forEach(([label, value]) => {
+        const row = el('div', 'bar-row');
+        row.append(el('span', '', label), el('strong', '', value));
+        rows.appendChild(row);
+      });
+    }
+
+    function showTaskDetail(text) {
+      $('#task-detail').textContent = text;
+    }
+
+    function sortTimelineByTime() {
+      timelineData.sort((a, b) => a.time.localeCompare(b.time));
+      renderTimeline();
+      showToast('已按时间顺序重排');
+    }
+
+    function compressPlan() {
+      coreOnly = true;
+      renderTaskPool();
+      renderTimeline();
+      showToast('已切换为核心任务视图');
+    }
+
+    function resetView() {
+      coreOnly = false;
+      renderTaskPool();
+      renderTimeline();
+      showToast('已恢复完整视图');
+    }
+
+    function rerankTimeline() {
+      const fixed = timelineData.filter(i => i.category === 'fixed');
+      const others = timelineData.filter(i => i.category !== 'fixed').sort((a, b) => {
+        const score = { core: 1, optional: 2, defer: 3 };
+        return score[a.category] - score[b.category];
+      });
+      timelineData = [fixed[0], ...others.slice(0,2), fixed[1] || null, ...others.slice(2), fixed[2] || null].filter(Boolean);
+      renderTimeline();
+      showToast('已根据优先级重排剩余任务');
+    }
+
+    function markFirstDone() {
+      const idx = timelineData.findIndex(item => item.category === 'core' || item.category === 'optional');
+      if (idx === -1) return showToast('当前没有可完成的任务');
+      const item = timelineData[idx];
+      timelineData.splice(idx, 1);
+      renderTimeline();
+      showToast(`已标记完成：${item.title}`);
+    }
+
+    function delayOne() {
+      const idx = timelineData.findIndex(item => item.category === 'optional' || item.category === 'defer');
+      if (idx === -1) return showToast('当前没有可延后的低优先项');
+      const item = timelineData.splice(idx, 1)[0];
+      timelineData.push(item);
+      renderTimeline();
+      showToast(`已延后：${item.title}`);
+    }
+
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => renderMode(btn.dataset.mode));
+    });
+
+    $('#btn-regenerate').addEventListener('click', () => {
+      renderMode(currentMode);
+      showToast('已根据当前模式重新规划');
+    });
+    $('#btn-core-only').addEventListener('click', compressPlan);
+    $('#btn-save-header').addEventListener('click', () => showToast('计划已保存到本地草稿（示例）'));
+    $('#btn-sort-time').addEventListener('click', sortTimelineByTime);
+    $('#btn-compress').addEventListener('click', compressPlan);
+    $('#btn-rerank').addEventListener('click', rerankTimeline);
+    $('#btn-view-core').addEventListener('click', compressPlan);
+    $('#btn-reset-view').addEventListener('click', resetView);
+    $('#btn-mark-done').addEventListener('click', markFirstDone);
+    $('#btn-delay-one').addEventListener('click', delayOne);
+    $('#btn-write-todo').addEventListener('click', () => showToast('已写入今日 Todo（示例动作）'));
+    $('#btn-sync-report').addEventListener('click', () => showToast('已同步到日报草稿（示例动作）'));
+    $('#btn-save-snapshot').addEventListener('click', () => showToast('已保存计划快照（示例动作）'));
+
+    renderStaticPanels();
+    renderMode('focus');
+  </script>
+</body>
+</html>
