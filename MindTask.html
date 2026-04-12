@@ -244,7 +244,7 @@ svg.lines{position:absolute;top:0;left:0;overflow:visible;pointer-events:none}
 <div class="filter-drop" id="statusFilterDrop">
 <label><input type="checkbox" class="filter-value" value="doing" onchange="applyFilters()"> 进行中</label>
 <label><input type="checkbox" class="filter-value" value="todo" onchange="applyFilters()"> 未开始</label>
-<label><input type="checkbox" class="filter-value" value="waiting" onchange="applyFilters()"> 等待中</label>
+<label><input type="checkbox" class="filter-value" value="waiting" onchange="applyFilters()"> 跟进中</label>
 <label><input type="checkbox" class="filter-value" value="blocked" onchange="applyFilters()"> 阻塞中</label>
 <label><input type="checkbox" class="filter-value" value="scheduled" onchange="applyFilters()"> 已排期</label>
 <label><input type="checkbox" class="filter-value" value="done" onchange="applyFilters()"> 已完成</label>
@@ -299,7 +299,7 @@ svg.lines{position:absolute;top:0;left:0;overflow:visible;pointer-events:none}
 <div id="editPanel">
 <h3><span>编辑节点</span><button class="close-btn" onclick="closePanel()">&times;</button></h3>
 <div class="field"><label>标题</label><input id="ep-title" oninput="epUpdate('title',this.value)"></div>
-<div class="field"><label>状态</label><select id="ep-status" onchange="epUpdate('status',this.value)"><option value="todo">未开始</option><option value="doing">进行中</option><option value="waiting">等待中</option><option value="blocked">阻塞中</option><option value="scheduled">已排期</option><option value="done">已完成</option><option value="stopped">已停止</option></select></div>
+<div class="field"><label>状态</label><select id="ep-status" onchange="epUpdate('status',this.value)"><option value="todo">未开始</option><option value="doing">进行中</option><option value="waiting">跟进中</option><option value="blocked">阻塞中</option><option value="scheduled">已排期</option><option value="done">已完成</option><option value="stopped">已停止</option></select></div>
 <div class="field"><label>优先级</label><select id="ep-priority" onchange="epUpdate('priority',this.value)"><option value="low">低</option><option value="medium">中</option><option value="high">高</option></select></div>
 <div class="field"><label>截止日期</label><div class="date-wrap"><input type="date" id="ep-due" onchange="epUpdate('dueDate',this.value)"><button onclick="clearDue()" title="清除日期">&times;</button></div></div>
 <div class="field"><label>备注</label><textarea id="ep-note" oninput="epUpdate('note',this.value)"></textarea></div>
@@ -342,7 +342,7 @@ svg.lines{position:absolute;top:0;left:0;overflow:visible;pointer-events:none}
 import { supabase, MINDTASK_STATE_TABLE } from './supabase-client.js';
 
 /** 每次发布/修改页面后递增，便于对照是否已加载最新脚本 */
-const MINDTASK_APP_VERSION = '1.1.06';
+const MINDTASK_APP_VERSION = '1.1.07';
 (()=>{let el=document.getElementById('mindtaskMenuVersion');if(el)el.textContent='Ver '+MINDTASK_APP_VERSION;})();
 
 const AFTER_LOGIN = './index.html';
@@ -911,7 +911,7 @@ function isFinishedStatus(st){return st==='done'||st==='stopped'}
 function statusLabel(st){
   if(st==='todo')return '未开始';
   if(st==='doing')return '进行中';
-  if(st==='waiting')return '等待中';
+  if(st==='waiting')return '跟进中';
   if(st==='blocked')return '阻塞中';
   if(st==='scheduled')return '已排期';
   if(st==='stopped')return '已停止';
@@ -1170,7 +1170,7 @@ function renderNode(node,canvas,svg){
     startQuickSelect(node.id,'status','quick-status',[
       {value:'todo',label:'未开始'},
       {value:'doing',label:'进行中'},
-      {value:'waiting',label:'等待中'},
+      {value:'waiting',label:'跟进中'},
       {value:'blocked',label:'阻塞中'},
       {value:'scheduled',label:'已排期'},
       {value:'done',label:'已完成'},
@@ -2086,7 +2086,7 @@ function updateStatusFilterButton(){
   statusFilters.forEach(v=>{
     if(v==='doing')names.push('进行中');
     else if(v==='todo')names.push('未开始');
-    else if(v==='waiting')names.push('等待中');
+    else if(v==='waiting')names.push('跟进中');
     else if(v==='blocked')names.push('阻塞中');
     else if(v==='scheduled')names.push('已排期');
     else if(v==='done')names.push('已完成');
@@ -2393,7 +2393,7 @@ document.getElementById('canvas').addEventListener('dblclick',(e)=>{
       startQuickSelect(id,'status','quick-status',[
         {value:'todo',label:'未开始'},
         {value:'doing',label:'进行中'},
-        {value:'waiting',label:'等待中'},
+        {value:'waiting',label:'跟进中'},
         {value:'blocked',label:'阻塞中'},
         {value:'scheduled',label:'已排期'},
         {value:'done',label:'已完成'},
