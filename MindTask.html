@@ -33,8 +33,10 @@ body.drag-sorting,body.drag-sorting *{-webkit-user-select:none;user-select:none;
 .sr-item{padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--bg2)}
 .sr-item:hover{background:var(--brandS)}
 .sr-path{font-size:11px;color:var(--muted2)}
+.hub-wrap{position:relative}
 .menu-wrap{position:relative}
 .menu-drop{position:absolute;top:34px;left:0;min-width:180px;background:var(--card);border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px #0002;display:none;z-index:200;padding:4px 0}
+.hub-drop{left:0;min-width:160px}
 .menu-drop.show{display:block}
 .menu-item{padding:8px 16px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px}
 .menu-item:hover{background:var(--brandS)}
@@ -208,6 +210,13 @@ svg.lines{position:absolute;top:0;left:0;overflow:visible;pointer-events:none}
 </head>
 <body>
 <div id="toolbar">
+<div class="hub-wrap">
+<button type="button" class="tbtn" onclick="toggleHubNav()" title="跳转到其他页面">&#127818;</button>
+<div class="menu-drop hub-drop" id="hubNavMenu">
+<div class="menu-item" onclick="goHubPage('daily_ops')">daily_ops</div>
+<div class="menu-item" onclick="goHubPage('ai_today')">ai_today</div>
+</div>
+</div>
 <div class="menu-wrap">
 <button onclick="toggleMenu()" class="tbtn">&#9776; 菜单</button>
 <div class="menu-drop" id="mainMenu">
@@ -2167,12 +2176,27 @@ function onSearch(){
   scheduleUiPrefsSync();
 }
 
+/* ===== HUB NAV ===== */
+const HUB_PAGE_URLS={daily_ops:'daily_ops.html',ai_today:'ai_today_planner.html'};
+function toggleHubNav(){
+  let h=document.getElementById('hubNavMenu');
+  h.classList.toggle('show');
+  if(h.classList.contains('show'))closeMenu();
+}
+function closeHubNav(){document.getElementById('hubNavMenu').classList.remove('show')}
+function goHubPage(key){
+  let u=HUB_PAGE_URLS[key];
+  if(u){closeHubNav();window.location.href=u;}
+}
+
 /* ===== MENU ===== */
 function toggleMenu(){
   let m=document.getElementById('mainMenu');m.classList.toggle('show');
+  if(m.classList.contains('show'))closeHubNav();
 }
 function closeMenu(){document.getElementById('mainMenu').classList.remove('show')}
 document.addEventListener('click',(e)=>{
+  if(!e.target.closest('.hub-wrap'))closeHubNav();
   if(!e.target.closest('.menu-wrap'))closeMenu();
   if(!e.target.closest('.search-wrap'))document.getElementById('searchResults').style.display='none';
   if(!e.target.closest('.filter-wrap'))closeFilterDrops();
