@@ -342,7 +342,7 @@ svg.lines{position:absolute;top:0;left:0;overflow:visible;pointer-events:none}
 import { supabase, MINDTASK_STATE_TABLE } from './supabase-client.js';
 
 /** 每次发布/修改页面后递增，便于对照是否已加载最新脚本 */
-const MINDTASK_APP_VERSION = '1.1.04';
+const MINDTASK_APP_VERSION = '1.1.05';
 (()=>{let el=document.getElementById('mindtaskMenuVersion');if(el)el.textContent='Ver '+MINDTASK_APP_VERSION;})();
 
 const AFTER_LOGIN = './index.html';
@@ -1819,13 +1819,22 @@ function onZoom(e){
     dz=-e.deltaY*0.0036;
     dz=Math.max(-0.016,Math.min(0.016,dz));
   }else if(e.deltaMode===0){
-    dz=-e.deltaY*0.00056;
-    dz=Math.max(-0.022,Math.min(0.022,dz));
+    let dy=Number(e.deltaY);
+    let abs=Math.abs(dy);
+    // Win11 Chrome/Edge 常见：物理滚轮仍用 deltaMode=0，整档 deltaY≈100/120，旧系数会被 ±0.022 压扁
+    let coarseWheel=Number.isInteger(dy)&&abs>=50&&abs<=600;
+    if(coarseWheel){
+      dz=-dy*0.0028;
+      dz=Math.max(-0.14,Math.min(0.14,dz));
+    }else{
+      dz=-dy*0.00056;
+      dz=Math.max(-0.022,Math.min(0.022,dz));
+    }
   }else{
     dz=e.deltaY>0?-0.1:0.1;
     if(e.deltaMode===1)dz*=12;
     if(e.deltaMode===2)dz*=32;
-    dz*=4;
+    dz*=6;
   }
   let nz=Math.max(0.2,Math.min(3,zoom+dz));
   panX=mx-(mx-panX)*(nz/zoom);
