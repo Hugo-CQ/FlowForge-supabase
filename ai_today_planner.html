@@ -55,6 +55,50 @@
       justify-content: space-between;
       gap: 16px;
     }
+    .title-row .title-block { flex: 1; min-width: 0; }
+
+    .hub-wrap {
+      position: relative;
+      z-index: 40;
+      flex-shrink: 0;
+    }
+    .hub-btn {
+      border: 1px solid rgba(255,255,255,0.22);
+      background: rgba(255,255,255,0.12);
+      color: #fff;
+      border-radius: 8px;
+      padding: 8px 11px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: 0.18s ease;
+    }
+    .hub-btn:hover {
+      background: rgba(255,255,255,0.2);
+      border-color: rgba(255,255,255,0.3);
+    }
+    .hub-drop {
+      display: none;
+      position: absolute;
+      left: 0;
+      top: calc(100% + 8px);
+      min-width: 168px;
+      background: #fff;
+      color: var(--text);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      box-shadow: 0 12px 28px rgba(14, 30, 54, 0.12);
+      padding: 4px 0;
+      z-index: 80;
+    }
+    .hub-drop.show { display: block; }
+    .hub-item {
+      padding: 10px 14px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .hub-item:hover {
+      background: var(--panel-2);
+    }
 
     .title-block h1 {
       margin: 0 0 4px;
@@ -566,6 +610,13 @@
     <section class="header-tile">
       <div>
         <div class="title-row">
+          <div class="hub-wrap" onclick="event.stopPropagation()">
+            <button type="button" class="hub-btn" onclick="toggleHubNav()" title="跳转到其他页面">&#127818;</button>
+            <div class="hub-drop" id="hubNavMenu">
+              <div class="hub-item" onclick="goHubPage('mindtask')">MindTask</div>
+              <div class="hub-item" onclick="goHubPage('daily_ops')">daily_ops</div>
+            </div>
+          </div>
           <div class="title-block">
             <h1>AI 今日规划</h1>
             <p>把今日日程、最近日报和任务池，转成今天真正可执行的计划。</p>
@@ -827,6 +878,28 @@
   <div class="toast" id="toast"></div>
 
   <script>
+    const HUB_PAGE_URLS = { mindtask: 'MindTask.html', daily_ops: 'daily_ops.html' };
+    function toggleHubNav() {
+      const h = document.getElementById('hubNavMenu');
+      if (h) h.classList.toggle('show');
+    }
+    function closeHubNav() {
+      const h = document.getElementById('hubNavMenu');
+      if (h) h.classList.remove('show');
+    }
+    function goHubPage(key) {
+      const u = HUB_PAGE_URLS[key];
+      if (u) {
+        closeHubNav();
+        window.location.href = u;
+      }
+    }
+    document.addEventListener('mousedown', (e) => {
+      const t = e.target;
+      const el = t instanceof Element ? t : t.parentElement;
+      if (!el || !el.closest('.hub-wrap')) closeHubNav();
+    });
+
     const baseSchedule = [
       { time: '09:30 - 10:00', title: '站会 / 对齐今天范围', meta: ['固定安排', '30 分钟'], desc: '快速确认今天页面产出边界，避免后续返工。' },
       { time: '14:00 - 15:00', title: '需求讨论 / AI 页面信息层级', meta: ['固定安排', '1 小时'], desc: '下午会议会打断连续深度工作，重要任务应尽量放上午。' },

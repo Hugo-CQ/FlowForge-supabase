@@ -101,6 +101,49 @@
       color: #fff;
     }
 
+    .hub-wrap {
+      position: relative;
+      z-index: 30;
+      margin-bottom: 14px;
+    }
+    .hub-btn {
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.06);
+      color: #f3f3f3;
+      border-radius: 10px;
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: 0.18s ease;
+    }
+    .hub-btn:hover {
+      background: rgba(255,255,255,0.12);
+      border-color: rgba(255,255,255,0.2);
+    }
+    .hub-drop {
+      display: none;
+      position: absolute;
+      left: 0;
+      top: calc(100% + 8px);
+      min-width: 168px;
+      background: #2c2c2c;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 10px;
+      box-shadow: 0 12px 28px rgba(0,0,0,0.35);
+      padding: 4px 0;
+      z-index: 50;
+    }
+    .hub-drop.show { display: block; }
+    .hub-item {
+      padding: 10px 14px;
+      font-size: 13px;
+      color: #eaeaea;
+      cursor: pointer;
+    }
+    .hub-item:hover {
+      background: rgba(255,255,255,0.08);
+    }
+
     .sidebar-footer {
       position: absolute;
       left: 16px;
@@ -606,6 +649,13 @@
         <div class="brand-title">Daily Ops</div>
         <div class="brand-sub">个人每日工作推进记录器<br>轻量记录、长期回看、给 AI 留好分析接口</div>
       </div>
+      <div class="hub-wrap" onclick="event.stopPropagation()">
+        <button type="button" class="hub-btn" onclick="toggleHubNav()" title="跳转到其他页面">&#127818;</button>
+        <div class="hub-drop" id="hubNavMenu">
+          <div class="hub-item" onclick="goHubPage('mindtask')">MindTask</div>
+          <div class="hub-item" onclick="goHubPage('ai_today')">ai_today</div>
+        </div>
+      </div>
       <nav class="nav" id="nav"></nav>
       <div class="sidebar-footer">
         本地优先：数据默认保存在浏览器 localStorage。<br>
@@ -632,6 +682,28 @@
       { id: 'ai', label: 'AI 设置' },
       { id: 'data', label: '数据管理' }
     ];
+
+    const HUB_PAGE_URLS = { mindtask: 'MindTask.html', ai_today: 'ai_today_planner.html' };
+    function toggleHubNav() {
+      const h = document.getElementById('hubNavMenu');
+      if (h) h.classList.toggle('show');
+    }
+    function closeHubNav() {
+      const h = document.getElementById('hubNavMenu');
+      if (h) h.classList.remove('show');
+    }
+    function goHubPage(key) {
+      const u = HUB_PAGE_URLS[key];
+      if (u) {
+        closeHubNav();
+        window.location.href = u;
+      }
+    }
+    document.addEventListener('mousedown', (e) => {
+      const t = e.target;
+      const el = t instanceof Element ? t : t.parentElement;
+      if (!el || !el.closest('.hub-wrap')) closeHubNav();
+    });
 
     const state = {
       currentView: 'today',
