@@ -302,7 +302,7 @@ svg.lines{position:absolute;top:0;left:0;overflow:visible;pointer-events:none}
 <div class="field"><label>标题</label><input id="ep-title" oninput="epUpdate('title',this.value)"></div>
 <div class="field"><label>状态</label><select id="ep-status" onchange="epUpdate('status',this.value)"><option value="todo">未开始</option><option value="doing">进行中</option><option value="waiting">跟进中</option><option value="blocked">阻塞中</option><option value="scheduled">已排期</option><option value="done">已完成</option><option value="stopped">已停止</option></select></div>
 <div class="field"><label>优先级</label><select id="ep-priority" onchange="epUpdate('priority',this.value)"><option value="low">低</option><option value="medium">中</option><option value="high">高</option></select></div>
-<div class="field"><label for="ep-due">截止日期</label><div class="date-wrap"><input type="text" id="ep-due" class="ep-due-text" placeholder="YYYY-MM-DD" autocomplete="off" onclick="epDueTryShowPicker()" onblur="epDueOnBlur()" onkeydown="if(event.key==='Enter'){event.preventDefault();epDueCommitFromText();}"><input type="date" id="ep-due-picker" class="ep-due-picker-hidden" tabindex="-1" aria-hidden="true" onchange="epDuePickerChanged()"><button type="button" onclick="event.stopPropagation();clearDue()" title="清除日期">&times;</button></div></div>
+<div class="field"><label for="ep-due">截止日期</label><div class="date-wrap"><input type="text" id="ep-due" class="ep-due-text" placeholder="YYYY-MM-DD" autocomplete="off" onclick="epDueTryShowPicker()" onblur="epDueOnBlur()" onkeydown="if(event.key==='Enter'){event.preventDefault();epDueCommitFromText();}"><input type="date" id="ep-due-picker" class="ep-due-picker-hidden" tabindex="-1" aria-hidden="true" onchange="epDuePickerChanged()" onblur="epDuePickerBlurred()"><button type="button" onclick="event.stopPropagation();clearDue()" title="清除日期">&times;</button></div></div>
 <div class="field"><label>备注</label><textarea id="ep-note" oninput="epUpdate('note',this.value)"></textarea></div>
 <div class="panel-btns">
 <button id="branchToggleBtn" onclick="highlightBranchFromPanel()">突出此分支</button>
@@ -1256,15 +1256,6 @@ function renderNode(node,canvas,svg){
   el.onmousedown=(e)=>{
     if(e.button===1)return;
     if(e.target.tagName==='BUTTON'||e.target.tagName==='INPUT'||e.target.tagName==='SELECT'||e.target.closest('.rename-input'))return;
-    // Keep node DOM stable for double-click quick edit targets.
-    if(e.target.closest('.ntitle')||e.target.closest('.quick-status')||e.target.closest('.quick-priority')||e.target.closest('.t-note-hint')){
-      e.stopPropagation();
-      if(e.target.closest('.t-note-hint')){
-        if(multiSelected.size>0)multiSelected.clear();
-        selectNode(node.id);
-      }
-      return;
-    }
     e.stopPropagation();
     if(e.ctrlKey||e.metaKey){
       if(multiSelected.size===0&&selectedId){
@@ -1507,6 +1498,16 @@ function epDueOnBlur(){
   if(epDueOpeningPicker)return;
   epDueScheduleBlurCommit();
 }
+function epDuePickerBlurred(){
+  epDueOpeningPicker=false;
+}
+function epDueDismissPicker(){
+  epDueOpeningPicker=false;
+  let pick=document.getElementById('ep-due-picker');
+  if(pick&&document.activeElement===pick){
+    try{pick.blur();}catch(_){}
+  }
+}
 function epDueCommitFromText(){
   let el=document.getElementById('ep-due');
   let pick=document.getElementById('ep-due-picker');
@@ -1543,6 +1544,7 @@ function epDueTryShowPicker(){
   let v=normalizeDueDateStr(el.value);
   pick.value=v||todayISO();
   try{
+    pick.focus({preventScroll:true});
     pick.showPicker();
   }catch(_){
     try{pick.focus();pick.click();}catch(__){}
@@ -2302,6 +2304,8 @@ function closeMenu(){document.getElementById('mainMenu').classList.remove('show'
 document.addEventListener('mousedown',(e)=>{
   let el=e.target instanceof Element?e.target:e.target.parentElement;
   if(!el||!el.closest('.hub-wrap'))closeHubNav();
+  let dueWrap=document.querySelector('#editPanel .date-wrap');
+  if(dueWrap&&(!el||!dueWrap.contains(el)))epDueDismissPicker();
 });
 document.addEventListener('click',(e)=>{
   if(!e.target.closest('.menu-wrap'))closeMenu();
