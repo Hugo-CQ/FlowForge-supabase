@@ -708,9 +708,12 @@ function applyUiState(raw){
 }
 function scheduleUiPrefsSync(){
   if(isBootstrapping)return;
-  try{localStorage.setItem('mt_ui_prefs',JSON.stringify(buildFullUiPrefs()));}catch(e){}
+  persistUiPrefsCache();
   markCloudDirty();
   debounceSaveToCloud();
+}
+function persistUiPrefsCache(){
+  try{localStorage.setItem('mt_ui_prefs',JSON.stringify(buildFullUiPrefs()));}catch(e){}
 }
 function setSyncStatusUi(code,message,opts={}){
   let el=document.getElementById('syncStatusText');
@@ -2928,7 +2931,7 @@ async function batchDelete(){
   renderProjects();
   renderAll();
   if(!didRestoreProjectUi)setTimeout(fitCanvas,100);
-  scheduleUiPrefsSync();
+  persistUiPrefsCache();
   window.addEventListener('resize',updateZoomCtrlPos);
   supabase.auth.onAuthStateChange((_event, session) => {
     if(!session)window.location.href=AFTER_LOGIN;
