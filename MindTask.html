@@ -364,10 +364,11 @@ svg.lines{position:absolute;top:0;left:0;overflow:visible;pointer-events:none}
 import { supabase, MINDTASK_STATE_TABLE } from './supabase-client.js';
 
 /** 每次发布/修改页面后递增，便于对照是否已加载最新脚本 */
-const MINDTASK_APP_VERSION = '1.2.1';
+const MINDTASK_APP_VERSION = '1.2.4';
 (()=>{let el=document.getElementById('mindtaskMenuVersion');if(el)el.textContent='Ver '+MINDTASK_APP_VERSION;})();
 
 const AFTER_LOGIN = './index.html';
+const ENABLE_ADVANCED_CLOUD_SYNC = false;
 const CLOUD_DEBOUNCE_MS = 800;
 const CLOUD_POLL_INTERVAL_MS = 60_000;
 const VISIBILITY_PULL_COOLDOWN_MS = 5_000;
@@ -395,6 +396,7 @@ let lastPullTs = 0;
 let lastPushRevision = 0;
 let isOnline = navigator.onLine !== false;
 let lastUiPrefsCacheJson = '';
+let cloudRevisionSupported = ENABLE_ADVANCED_CLOUD_SYNC;
 
 /* ===== DATA ===== */
 const THEMES = {
@@ -784,6 +786,34 @@ function setSyncStatusUi(code,message,opts={}){
     nextTone==='warn'?'var(--hi)':
     'var(--muted)';
 }
+function isRevisionNotSupportedError(error){
+  if(!error)return false;
+  let code=String(error.code||'');
+  let msg=String(error.message||'').toLowerCase();
+  let details=String(error.details||'').toLowerCase();
+  return code==='42703' || msg.includes('revision') || details.includes('revision');
+}
+async function syncToCloudLegacy(session,startSeq){
+  let legacyPayload={
+    user_id:session.user.id,
+    projects:projects,
+    cur_proj_id:curProjId,
+    ui_prefs:buildFullUiPrefs(),
+    updated_at:new Date().toISOString()
+  };
+  let { error }=await supabase
+    .from(MINDTASK_STATE_TABLE)
+    .upsert(legacyPayload,{onConflict:'user_id'});
+  if(error){
+    console.error(error);
+    setSyncStatusUi('warn','云端暂不可用，本地已保存');
+    scheduleSyncRetry();
+    return false;
+  }
+  cloudRowExists=true;
+  markCloudSynced(cloudRevision,startSeq);
+  return true;
+}
 async function syncToCloud(){
   if(!hasPendingCloudChanges()&&cloudRowExists){
     setSyncStatusUi('synced');
@@ -805,8 +835,25 @@ async function syncToCloud(){
   setSyncStatusUi('syncing');
   let syncOk=false;
   try{
-    let baseRevision=parseRevision(cloudRevision);
     let startSeq=localChangeSeq;
+    if(!ENABLE_ADVANCED_CLOUD_SYNC){
+      cloudRevisionSupported=false;
+      syncOk=await syncToCloudLegacy(session,startSeq);
+      if(syncOk){
+        syncRetryCount=0;
+        if(localChangeSeq!==startSeq)cloudSyncQueued=true;
+      }
+      return;
+    }
+    let baseRevision=parseRevision(cloudRevision);
+    if(!cloudRevisionSupported){
+      syncOk=await syncToCloudLegacy(session,startSeq);
+      if(syncOk){
+        syncRetryCount=0;
+        if(localChangeSeq!==startSeq)cloudSyncQueued=true;
+      }
+      return;
+    }
     let payload={
       user_id:session.user.id,
       projects:projects,
@@ -825,6 +872,15 @@ async function syncToCloud(){
         .select('revision')
         .maybeSingle();
       if(error){
+        if(isRevisionNotSupportedError(error)){
+          cloudRevisionSupported=false;
+          syncOk=await syncToCloudLegacy(session,startSeq);
+          if(syncOk){
+            syncRetryCount=0;
+            if(localChangeSeq!==startSeq)cloudSyncQueued=true;
+          }
+          return;
+        }
         console.error(error);
         setSyncStatusUi('warn','云端暂不可用，本地已保存');
         scheduleSyncRetry();
@@ -846,6 +902,15 @@ async function syncToCloud(){
         if(error.code==='23505'){
           let keepLocal=await handleSyncConflict(session.user.id);
           if(keepLocal)cloudSyncQueued=true;
+          return;
+        }
+        if(isRevisionNotSupportedError(error)){
+          cloudRevisionSupported=false;
+          syncOk=await syncToCloudLegacy(session,startSeq);
+          if(syncOk){
+            syncRetryCount=0;
+            if(localChangeSeq!==startSeq)cloudSyncQueued=true;
+          }
           return;
         }
         console.error(error);
@@ -887,6 +952,7 @@ async function manualSyncToCloud(){
 
 /* ===== PULL FROM CLOUD (cross-device) ===== */
 async function pullFromCloud(opts={}){
+  if(!ENABLE_ADVANCED_CLOUD_SYNC)return;
   if(isPulling||isSyncing||isBootstrapping)return;
   let { data, error: sessErr }=await supabase.auth.getSession();
   if(sessErr||!data?.session?.user)return;
@@ -927,6 +993,7 @@ async function pullFromCloud(opts={}){
 
 /* ===== SUPABASE REALTIME SUBSCRIPTION ===== */
 function setupRealtimeSync(userId){
+  if(!ENABLE_ADVANCED_CLOUD_SYNC)return;
   teardownRealtimeSync();
   realtimeChannel=supabase
     .channel('mindtask-sync-'+userId.slice(0,8))
@@ -1121,6 +1188,9 @@ async function bootstrapFromCloud(user){
   }
 
   let remoteRevision=parseRevision(row&&row.revision);
+  if(!(row&&Object.prototype.hasOwnProperty.call(row,'revision'))){
+    cloudRevisionSupported=false;
+  }
   if(row&&row.projects!=null&&Array.isArray(row.projects)&&row.projects.length>0){
     if(localSyncMeta.pending&&localSnap.hasData){
       let keepLocal=await showConfirmModal({
