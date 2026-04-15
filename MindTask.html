@@ -371,6 +371,8 @@ const AFTER_LOGIN = './index.html';
 const CLOUD_DEBOUNCE_MS = 800;
 const CLOUD_POLL_INTERVAL_MS = 60_000;
 const VISIBILITY_PULL_COOLDOWN_MS = 5_000;
+const SYNC_RETRY_BASE_MS = 3_000;
+const SYNC_RETRY_MAX_MS = 120_000;
 const LOCAL_CLOUD_REVISION_KEY = 'mt_cloud_revision';
 const LOCAL_CLOUD_ROW_EXISTS_KEY = 'mt_cloud_row_exists';
 const LOCAL_CLOUD_PENDING_KEY = 'mt_cloud_pending_sync';
@@ -378,6 +380,8 @@ let isBootstrapping = true;
 let isSyncing = false;
 let isPulling = false;
 let cloudDebounceTimer = null;
+let syncRetryTimer = null;
+let syncRetryCount = 0;
 let cloudRevision = 0;
 let cloudRowExists = false;
 let localChangeSeq = 0;
@@ -388,6 +392,7 @@ let syncStatusState = { code:'idle', message:'待同步', tone:'muted' };
 let realtimeChannel = null;
 let cloudPollTimer = null;
 let lastPullTs = 0;
+let lastPushRevision = 0;
 let isOnline = navigator.onLine !== false;
 
 /* ===== DATA ===== */
@@ -628,6 +633,8 @@ function save(){
 function debounceSaveToCloud(){
   if(isBootstrapping)return;
   clearTimeout(cloudDebounceTimer);
+  clearTimeout(syncRetryTimer);
+  syncRetryCount=0;
   cloudDebounceTimer=setTimeout(()=>{syncToCloud();},CLOUD_DEBOUNCE_MS);
 }
 function collectUiState(){
@@ -786,7 +793,9 @@ async function syncToCloud(){
   }
   let session=data.session;
   isSyncing=true;
+  clearTimeout(syncRetryTimer);
   setSyncStatusUi('syncing');
+  let syncOk=false;
   try{
     let baseRevision=parseRevision(cloudRevision);
     let startSeq=localChangeSeq;
@@ -810,6 +819,7 @@ async function syncToCloud(){
       if(error){
         console.error(error);
         setSyncStatusUi('warn','云端暂不可用，本地已保存');
+        scheduleSyncRetry();
         return;
       }
       if(!updatedRow){
@@ -832,23 +842,36 @@ async function syncToCloud(){
         }
         console.error(error);
         setSyncStatusUi('warn','云端暂不可用，本地已保存');
+        scheduleSyncRetry();
         return;
       }
       if(!insertedRow){
         setSyncStatusUi('warn','同步结果未确认，稍后会再试');
+        scheduleSyncRetry();
         return;
       }
       savedRow=insertedRow;
     }
+    lastPushRevision=parseRevision(savedRow.revision);
     markCloudSynced(savedRow.revision,startSeq);
+    syncOk=true;
+    syncRetryCount=0;
     if(localChangeSeq!==startSeq)cloudSyncQueued=true;
   }finally{
     isSyncing=false;
-    if(cloudSyncQueued||hasPendingCloudChanges()){
+    if(syncOk&&(cloudSyncQueued||hasPendingCloudChanges())){
       cloudSyncQueued=false;
       setTimeout(()=>syncToCloud(),0);
     }
   }
+}
+function scheduleSyncRetry(){
+  clearTimeout(syncRetryTimer);
+  let delay=Math.min(SYNC_RETRY_BASE_MS*Math.pow(2,syncRetryCount),SYNC_RETRY_MAX_MS);
+  syncRetryCount++;
+  syncRetryTimer=setTimeout(()=>{
+    if(isOnline&&hasPendingCloudChanges())syncToCloud();
+  },delay);
 }
 async function manualSyncToCloud(){
   await syncToCloud();
@@ -903,9 +926,10 @@ function setupRealtimeSync(userId){
       {event:'UPDATE',schema:'public',table:MINDTASK_STATE_TABLE,filter:'user_id=eq.'+userId},
       (payload)=>{
         let newRev=parseRevision(payload.new&&payload.new.revision);
-        if(newRev>parseRevision(cloudRevision)&&!isSyncing){
-          pullFromCloud({silent:true});
-        }
+        if(newRev<=parseRevision(cloudRevision))return;
+        if(newRev===lastPushRevision)return;
+        if(isSyncing||isPulling)return;
+        pullFromCloud({silent:true});
       }
     )
     .subscribe((status)=>{
@@ -948,6 +972,8 @@ function onVisibilityChange(){
 /* ===== ONLINE/OFFLINE HANDLING ===== */
 function onOnline(){
   isOnline=true;
+  syncRetryCount=0;
+  clearTimeout(syncRetryTimer);
   if(hasPendingCloudChanges()){
     setSyncStatusUi('pending','网络已恢复，正在同步');
     debounceSaveToCloud();
