@@ -22,7 +22,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 body.drag-sorting,body.drag-sorting *{-webkit-user-select:none;user-select:none;cursor:grabbing!important}
 #toolbar{height:44px;background:var(--panel);border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 12px;gap:8px;z-index:100;flex-shrink:0;position:relative}
 .toolbar-end{display:flex;align-items:center;gap:8px;margin-left:auto;flex-shrink:0;min-width:0}
-#syncStatusText{font-size:11px;color:var(--muted);white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis;flex-shrink:0}
+#syncStatusText{font-size:11px;color:var(--muted);white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis;flex-shrink:0;display:inline-flex;align-items:center;gap:4px;transition:color .3s}
+@keyframes syncSpin{to{transform:rotate(360deg)}}
+@keyframes syncPulse{0%,100%{opacity:1}50%{opacity:.4}}
+.sync-dot{display:inline-block;width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.sync-dot.syncing{border:1.5px solid var(--brand);border-top-color:transparent;animation:syncSpin .8s linear infinite;width:10px;height:10px;border-radius:50%;background:none}
+.sync-dot.synced{background:var(--done)}
+.sync-dot.pending{background:var(--muted2);animation:syncPulse 2s ease-in-out infinite}
+.sync-dot.warn{background:var(--hi)}
+.sync-dot.error{background:var(--danger)}
+.sync-dot.offline{background:var(--muted2);opacity:.5}
 #toolbar button,.tbtn{height:30px;padding:0 10px;border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap}
 #toolbar button:hover,.tbtn:hover{background:var(--brandS);border-color:var(--brand)}
 .search-wrap{position:relative;flex:1 1 160px;min-width:120px;max-width:280px}
@@ -276,7 +285,7 @@ svg.lines{position:absolute;top:0;left:0;overflow:visible;pointer-events:none}
 </div>
 </div>
 <div class="toolbar-end">
-<span id="syncStatusText">未同步</span>
+<span id="syncStatusText"><span class="sync-dot pending" id="syncDot"></span>未同步</span>
 <div class="search-wrap">
 <input type="text" id="searchInput" placeholder="搜索任务..." oninput="onSearch()">
 <div id="searchResults"></div>
@@ -355,16 +364,19 @@ svg.lines{position:absolute;top:0;left:0;overflow:visible;pointer-events:none}
 import { supabase, MINDTASK_STATE_TABLE } from './supabase-client.js';
 
 /** 每次发布/修改页面后递增，便于对照是否已加载最新脚本 */
-const MINDTASK_APP_VERSION = '1.1.11';
+const MINDTASK_APP_VERSION = '1.2.0';
 (()=>{let el=document.getElementById('mindtaskMenuVersion');if(el)el.textContent='Ver '+MINDTASK_APP_VERSION;})();
 
 const AFTER_LOGIN = './index.html';
 const CLOUD_DEBOUNCE_MS = 800;
+const CLOUD_POLL_INTERVAL_MS = 60_000;
+const VISIBILITY_PULL_COOLDOWN_MS = 5_000;
 const LOCAL_CLOUD_REVISION_KEY = 'mt_cloud_revision';
 const LOCAL_CLOUD_ROW_EXISTS_KEY = 'mt_cloud_row_exists';
 const LOCAL_CLOUD_PENDING_KEY = 'mt_cloud_pending_sync';
 let isBootstrapping = true;
 let isSyncing = false;
+let isPulling = false;
 let cloudDebounceTimer = null;
 let cloudRevision = 0;
 let cloudRowExists = false;
@@ -373,6 +385,10 @@ let syncedChangeSeq = 0;
 let cloudSyncQueued = false;
 let confirmModalState = null;
 let syncStatusState = { code:'idle', message:'待同步', tone:'muted' };
+let realtimeChannel = null;
+let cloudPollTimer = null;
+let lastPullTs = 0;
+let isOnline = navigator.onLine !== false;
 
 /* ===== DATA ===== */
 const THEMES = {
@@ -717,14 +733,17 @@ function persistUiPrefsCache(){
 }
 function setSyncStatusUi(code,message,opts={}){
   let el=document.getElementById('syncStatusText');
+  let dot=document.getElementById('syncDot');
   if(!el)return;
   let map={
-    idle:{text:'待同步',tone:'muted'},
-    pending:{text:'待同步',tone:'muted'},
-    syncing:{text:'同步中',tone:'muted'},
-    synced:{text:'已同步',tone:'done'},
-    warn:{text:'本地已保存',tone:'warn'},
-    error:{text:'需要处理',tone:'danger'}
+    idle:{text:'待同步',tone:'muted',dot:'pending'},
+    pending:{text:'待同步',tone:'muted',dot:'pending'},
+    syncing:{text:'同步中…',tone:'muted',dot:'syncing'},
+    pulling:{text:'拉取中…',tone:'muted',dot:'syncing'},
+    synced:{text:'已同步',tone:'done',dot:'synced'},
+    warn:{text:'本地已保存',tone:'warn',dot:'warn'},
+    error:{text:'需要处理',tone:'danger',dot:'error'},
+    offline:{text:'离线',tone:'muted',dot:'offline'}
   };
   let meta=map[code]||map.idle;
   let nextMessage=(message!=null&&message!=='')?message:meta.text;
@@ -735,7 +754,15 @@ function setSyncStatusUi(code,message,opts={}){
     syncStatusState.tone===nextTone
   )return;
   syncStatusState={code,message:nextMessage,tone:nextTone};
-  el.textContent=nextMessage;
+  if(dot){
+    dot.className='sync-dot '+(meta.dot||'pending');
+  }
+  let textNode=el.childNodes.length>1?el.childNodes[1]:null;
+  if(textNode&&textNode.nodeType===3)textNode.textContent=nextMessage;
+  else{
+    while(el.childNodes.length>1)el.removeChild(el.lastChild);
+    el.appendChild(document.createTextNode(nextMessage));
+  }
   el.style.color=
     nextTone==='danger'?'var(--danger)':
     nextTone==='done'?'var(--done)':
@@ -748,6 +775,10 @@ async function syncToCloud(){
     return;
   }
   if(isSyncing)return;
+  if(!isOnline){
+    setSyncStatusUi('offline','离线中，改动已本地保存');
+    return;
+  }
   let { data, error: sessErr }=await supabase.auth.getSession();
   if(sessErr||!data?.session?.user){
     window.location.href=AFTER_LOGIN;
@@ -822,7 +853,125 @@ async function syncToCloud(){
 async function manualSyncToCloud(){
   await syncToCloud();
 }
+
+/* ===== PULL FROM CLOUD (cross-device) ===== */
+async function pullFromCloud(opts={}){
+  if(isPulling||isSyncing||isBootstrapping)return;
+  let { data, error: sessErr }=await supabase.auth.getSession();
+  if(sessErr||!data?.session?.user)return;
+  isPulling=true;
+  if(!opts.silent)setSyncStatusUi('pulling');
+  try{
+    let { data: row, error }=await fetchCloudStateRow(data.session.user.id);
+    if(error){console.error('pull error',error);return;}
+    lastPullTs=Date.now();
+    if(!row)return;
+    let remoteRev=parseRevision(row.revision);
+    if(remoteRev<=parseRevision(cloudRevision))return;
+    if(hasPendingCloudChanges()){
+      let keepLocal=await showConfirmModal({
+        title:'其他设备已更新',
+        message:'检测到云端有新版本，但本地也有未同步的改动。\n\n确定：保留本地版本，稍后覆盖云端。\n取消：加载云端最新版本。',
+        confirmText:'保留本地',
+        cancelText:'加载云端版本',
+        confirmVariant:'primary'
+      });
+      if(keepLocal){
+        cloudRevision=remoteRev;
+        cloudRowExists=true;
+        persistCloudSyncMeta();
+        cloudSyncQueued=true;
+        setSyncStatusUi('pending','本地改动待同步');
+        return;
+      }
+    }
+    if(applyResolvedCloudRow(row)){
+      setCloudSyncBaseline(remoteRev,true,false);
+      setSyncStatusUi('synced','已同步最新');
+    }
+  }finally{
+    isPulling=false;
+  }
+}
+
+/* ===== SUPABASE REALTIME SUBSCRIPTION ===== */
+function setupRealtimeSync(userId){
+  teardownRealtimeSync();
+  realtimeChannel=supabase
+    .channel('mindtask-sync-'+userId.slice(0,8))
+    .on('postgres_changes',
+      {event:'UPDATE',schema:'public',table:MINDTASK_STATE_TABLE,filter:'user_id=eq.'+userId},
+      (payload)=>{
+        let newRev=parseRevision(payload.new&&payload.new.revision);
+        if(newRev>parseRevision(cloudRevision)&&!isSyncing){
+          pullFromCloud({silent:true});
+        }
+      }
+    )
+    .subscribe((status)=>{
+      if(status==='SUBSCRIBED'){
+        startCloudPoll(userId);
+      }else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'){
+        startCloudPoll(userId);
+      }
+    });
+}
+function teardownRealtimeSync(){
+  if(realtimeChannel){
+    supabase.removeChannel(realtimeChannel);
+    realtimeChannel=null;
+  }
+  stopCloudPoll();
+}
+
+/* ===== PERIODIC FALLBACK POLL ===== */
+function startCloudPoll(userId){
+  stopCloudPoll();
+  cloudPollTimer=setInterval(()=>{
+    if(!document.hidden&&isOnline&&!isSyncing&&!isPulling){
+      pullFromCloud({silent:true});
+    }
+  },CLOUD_POLL_INTERVAL_MS);
+}
+function stopCloudPoll(){
+  if(cloudPollTimer){clearInterval(cloudPollTimer);cloudPollTimer=null;}
+}
+
+/* ===== VISIBILITY CHANGE — re-pull on tab focus ===== */
+function onVisibilityChange(){
+  if(document.hidden||isBootstrapping)return;
+  if(!isOnline)return;
+  if(Date.now()-lastPullTs<VISIBILITY_PULL_COOLDOWN_MS)return;
+  pullFromCloud({silent:true});
+}
+
+/* ===== ONLINE/OFFLINE HANDLING ===== */
+function onOnline(){
+  isOnline=true;
+  if(hasPendingCloudChanges()){
+    setSyncStatusUi('pending','网络已恢复，正在同步');
+    debounceSaveToCloud();
+  }else{
+    pullFromCloud({silent:true});
+  }
+}
+function onOffline(){
+  isOnline=false;
+  if(!isSyncing)setSyncStatusUi('offline');
+}
+
+/* ===== BEFOREUNLOAD — flush pending sync ===== */
+function onBeforeUnload(){
+  if(!hasPendingCloudChanges())return;
+  writeLocalCache();
+  persistCloudSyncMeta();
+  try{
+    let { data }=supabase.auth.getSession();
+  }catch(e){}
+}
+
 async function doLogout(){
+  teardownRealtimeSync();
   await supabase.auth.signOut();
   window.location.href=AFTER_LOGIN;
 }
@@ -2933,8 +3082,23 @@ async function batchDelete(){
   if(!didRestoreProjectUi)setTimeout(fitCanvas,100);
   persistUiPrefsCache();
   window.addEventListener('resize',updateZoomCtrlPos);
-  supabase.auth.onAuthStateChange((_event, session) => {
-    if(!session)window.location.href=AFTER_LOGIN;
+
+  setupRealtimeSync(session.user.id);
+
+  document.addEventListener('visibilitychange',onVisibilityChange);
+  window.addEventListener('online',onOnline);
+  window.addEventListener('offline',onOffline);
+  window.addEventListener('beforeunload',onBeforeUnload);
+  window.addEventListener('pagehide',onBeforeUnload);
+
+  supabase.auth.onAuthStateChange((_event, sess) => {
+    if(!sess){
+      teardownRealtimeSync();
+      window.location.href=AFTER_LOGIN;
+    }else if(sess.user&&sess.user.id!==session.user.id){
+      teardownRealtimeSync();
+      setupRealtimeSync(sess.user.id);
+    }
   });
 })();
 
