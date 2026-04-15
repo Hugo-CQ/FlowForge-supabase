@@ -392,6 +392,8 @@ let canvasTouchDocBound = false;
 let nodePositions = {};
 let nodeHeightCache = {};
 let relayoutPass = 0;
+let nodeResizeObserver = null;
+let nodeResizeRaf = 0;
 let dragSortState = null;
 let dropIndicatorEl = null;
 let searchHits = new Set();
@@ -1291,7 +1293,7 @@ async function deleteNode(nodeId){
 }
 
 /* ===== RENDER ===== */
-const GAP_X=60,GAP_Y=22,ROOT_PAD=20;
+const GAP_X=60,GAP_Y=30,ROOT_PAD=20;
 function measureNode(node,depth){
   let w=depth===0?200:depth===1?180:155;
   let h=nodeHeightCache[node.id] || (depth===0?64:56);
@@ -1356,6 +1358,7 @@ function renderAllCore(){
   Array.from(canvas.children).forEach(ch=>{if(ch!==svg)canvas.removeChild(ch)});
   svg.innerHTML='';
   renderNode(root,canvas,svg);
+  observeRenderedNodes();
   updateCanvasTransform();
   if(selectedId)fillPanel(selectedId);
   if(document.getElementById('calendarPanel').classList.contains('open'))renderCalendarPanel();
@@ -1382,6 +1385,35 @@ function measureHeightsSync(){
     }
   });
   return changed;
+}
+function scheduleNodeRelayout(){
+  if(nodeResizeRaf)return;
+  nodeResizeRaf=requestAnimationFrame(()=>{
+    nodeResizeRaf=0;
+    if(measureHeightsSync())renderAll();
+  });
+}
+function observeRenderedNodes(){
+  if(typeof ResizeObserver!=='function')return;
+  if(!nodeResizeObserver){
+    nodeResizeObserver=new ResizeObserver(entries=>{
+      let changed=false;
+      entries.forEach(entry=>{
+        let el=entry.target;
+        let id=(el.id||'').replace('nd-','');
+        if(!id)return;
+        let h=el.offsetHeight||Math.ceil(entry.contentRect.height||0);
+        if(!h||!isFinite(h))return;
+        if(Math.abs((nodeHeightCache[id]||0)-h)>1){
+          nodeHeightCache[id]=h;
+          changed=true;
+        }
+      });
+      if(changed)scheduleNodeRelayout();
+    });
+  }
+  nodeResizeObserver.disconnect();
+  document.querySelectorAll('#canvas .node').forEach(el=>nodeResizeObserver.observe(el));
 }
 function renderAllStable(){
   for(let i=0;i<8;i++){
