@@ -364,7 +364,7 @@ svg.lines{position:absolute;top:0;left:0;overflow:visible;pointer-events:none}
 import { supabase, MINDTASK_STATE_TABLE } from './supabase-client.js';
 
 /** 每次发布/修改页面后递增，便于对照是否已加载最新脚本 */
-const MINDTASK_APP_VERSION = '1.2.0';
+const MINDTASK_APP_VERSION = '1.2.1';
 (()=>{let el=document.getElementById('mindtaskMenuVersion');if(el)el.textContent='Ver '+MINDTASK_APP_VERSION;})();
 
 const AFTER_LOGIN = './index.html';
@@ -394,6 +394,7 @@ let cloudPollTimer = null;
 let lastPullTs = 0;
 let lastPushRevision = 0;
 let isOnline = navigator.onLine !== false;
+let lastUiPrefsCacheJson = '';
 
 /* ===== DATA ===== */
 const THEMES = {
@@ -731,12 +732,19 @@ function applyUiState(raw){
 }
 function scheduleUiPrefsSync(){
   if(isBootstrapping)return;
-  persistUiPrefsCache();
+  if(!persistUiPrefsCache())return;
   markCloudDirty();
   debounceSaveToCloud();
 }
 function persistUiPrefsCache(){
-  try{localStorage.setItem('mt_ui_prefs',JSON.stringify(buildFullUiPrefs()));}catch(e){}
+  try{
+    let nextJson=JSON.stringify(buildFullUiPrefs());
+    if(nextJson===lastUiPrefsCacheJson)return false;
+    localStorage.setItem('mt_ui_prefs',nextJson);
+    lastUiPrefsCacheJson=nextJson;
+    return true;
+  }catch(e){}
+  return false;
 }
 function setSyncStatusUi(code,message,opts={}){
   let el=document.getElementById('syncStatusText');
