@@ -140,10 +140,12 @@ svg.lines{position:absolute;top:0;left:0;overflow:visible;pointer-events:none}
 .modal-overlay{position:fixed;inset:0;background:#0004;z-index:300;display:flex;align-items:center;justify-content:center}
 .modal{background:var(--card);border-radius:12px;padding:24px;max-width:400px;width:90%;box-shadow:0 16px 48px #0003}
 .modal h4{margin-bottom:12px;font-size:15px}
-.modal p{font-size:13px;color:var(--muted);margin-bottom:16px}
+.modal p{font-size:13px;color:var(--muted);margin-bottom:16px;white-space:pre-line}
 .modal .mbtn{display:flex;gap:8px;justify-content:flex-end}
 .modal .mbtn button{padding:8px 16px;border-radius:6px;border:1px solid var(--line);background:var(--card);cursor:pointer;font-size:13px}
+.modal .mbtn .primary{background:var(--brand);color:#fff;border-color:var(--brand)}
 .modal .mbtn .confirm{background:var(--danger);color:#fff;border-color:var(--danger)}
+.modal-overlay[hidden]{display:none}
 #calendarPanel{position:fixed;top:44px;right:0;width:340px;height:calc(100vh - 44px);background:var(--panel);border-left:1px solid var(--line);z-index:89;transform:translateX(100%);transition:transform .25s;overflow-y:auto;padding:20px;display:flex;flex-direction:column;pointer-events:none}
 #calendarPanel.open{transform:translateX(0);pointer-events:auto}
 #calendarPanel h3{font-size:15px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
@@ -339,18 +341,37 @@ svg.lines{position:absolute;top:0;left:0;overflow:visible;pointer-events:none}
 <span id="zoomLabel">100%</span>
 <button onclick="zoomBy(0.15)">+</button>
 </div>
+<div id="confirmModal" class="modal-overlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirmModalTitle" aria-describedby="confirmModalMessage">
+    <h4 id="confirmModalTitle">请确认</h4>
+    <p id="confirmModalMessage"></p>
+    <div class="mbtn">
+      <button type="button" id="confirmModalCancel">取消</button>
+      <button type="button" id="confirmModalOk" class="confirm">确定</button>
+    </div>
+  </div>
+</div>
 <script type="module">
 import { supabase, MINDTASK_STATE_TABLE } from './supabase-client.js';
 
 /** 每次发布/修改页面后递增，便于对照是否已加载最新脚本 */
-const MINDTASK_APP_VERSION = '1.1.09';
+const MINDTASK_APP_VERSION = '1.1.10';
 (()=>{let el=document.getElementById('mindtaskMenuVersion');if(el)el.textContent='Ver '+MINDTASK_APP_VERSION;})();
 
 const AFTER_LOGIN = './index.html';
 const CLOUD_DEBOUNCE_MS = 800;
+const LOCAL_CLOUD_REVISION_KEY = 'mt_cloud_revision';
+const LOCAL_CLOUD_ROW_EXISTS_KEY = 'mt_cloud_row_exists';
+const LOCAL_CLOUD_PENDING_KEY = 'mt_cloud_pending_sync';
 let isBootstrapping = true;
 let isSyncing = false;
 let cloudDebounceTimer = null;
+let cloudRevision = 0;
+let cloudRowExists = false;
+let localChangeSeq = 0;
+let syncedChangeSeq = 0;
+let cloudSyncQueued = false;
+let confirmModalState = null;
 
 /* ===== DATA ===== */
 const THEMES = {
@@ -440,10 +461,150 @@ function writeLocalCache(){
     }
   }catch(e){}
 }
+function parseRevision(value){
+  let n=Number(value);
+  return Number.isFinite(n)&&n>=0?Math.floor(n):0;
+}
+function showConfirmModal(options={}){
+  let modal=document.getElementById('confirmModal');
+  let titleEl=document.getElementById('confirmModalTitle');
+  let msgEl=document.getElementById('confirmModalMessage');
+  let cancelBtn=document.getElementById('confirmModalCancel');
+  let okBtn=document.getElementById('confirmModalOk');
+  if(!modal||!titleEl||!msgEl||!cancelBtn||!okBtn){
+    return Promise.resolve(window.confirm(options.message||'请确认当前操作'));
+  }
+  if(confirmModalState&&typeof confirmModalState.resolve==='function'){
+    confirmModalState.resolve(false);
+  }
+  titleEl.textContent=options.title||'请确认';
+  msgEl.textContent=options.message||'请确认当前操作';
+  cancelBtn.textContent=options.cancelText||'取消';
+  okBtn.textContent=options.confirmText||'确定';
+  okBtn.className=options.confirmVariant==='primary'?'primary':'confirm';
+  modal.hidden=false;
+  document.body.style.overflow='hidden';
+  return new Promise(resolve=>{
+    let cleanup=()=>{
+      modal.hidden=true;
+      document.body.style.overflow='';
+      modal.onclick=null;
+      cancelBtn.onclick=null;
+      okBtn.onclick=null;
+      document.removeEventListener('keydown',onKeydown,true);
+      confirmModalState=null;
+    };
+    let finish=(result)=>{
+      cleanup();
+      resolve(result);
+    };
+    let onKeydown=(e)=>{
+      if(e.key==='Escape'){
+        e.preventDefault();
+        finish(false);
+      }else if(e.key==='Enter'){
+        e.preventDefault();
+        finish(true);
+      }
+    };
+    modal.onclick=(e)=>{if(e.target===modal)finish(false);};
+    cancelBtn.onclick=()=>finish(false);
+    okBtn.onclick=()=>finish(true);
+    document.addEventListener('keydown',onKeydown,true);
+    confirmModalState={resolve:finish};
+    setTimeout(()=>okBtn.focus(),0);
+  });
+}
+function hasPendingCloudChanges(){return localChangeSeq!==syncedChangeSeq}
+function persistCloudSyncMeta(){
+  try{
+    localStorage.setItem(LOCAL_CLOUD_REVISION_KEY,String(parseRevision(cloudRevision)));
+    localStorage.setItem(LOCAL_CLOUD_ROW_EXISTS_KEY,cloudRowExists?'1':'0');
+    localStorage.setItem(LOCAL_CLOUD_PENDING_KEY,hasPendingCloudChanges()?'1':'0');
+  }catch(e){}
+}
+function setCloudSyncBaseline(revision,rowExists,pending){
+  cloudRevision=parseRevision(revision);
+  cloudRowExists=!!rowExists;
+  if(pending){
+    localChangeSeq=1;
+    syncedChangeSeq=0;
+  }else{
+    localChangeSeq=0;
+    syncedChangeSeq=0;
+  }
+  persistCloudSyncMeta();
+}
+function markCloudDirty(){
+  if(isBootstrapping)return;
+  localChangeSeq++;
+  persistCloudSyncMeta();
+  if(!isSyncing)setSyncStatusUi('idle');
+}
+function markCloudSynced(revision,syncedSeq){
+  cloudRevision=parseRevision(revision);
+  cloudRowExists=true;
+  syncedChangeSeq=Math.max(syncedChangeSeq,syncedSeq==null?localChangeSeq:syncedSeq);
+  persistCloudSyncMeta();
+  if(hasPendingCloudChanges())setSyncStatusUi('idle','有新改动待同步');
+  else setSyncStatusUi('synced');
+}
+function readLocalSyncMeta(){
+  return{
+    revision:parseRevision(localStorage.getItem(LOCAL_CLOUD_REVISION_KEY)),
+    rowExists:localStorage.getItem(LOCAL_CLOUD_ROW_EXISTS_KEY)==='1',
+    pending:localStorage.getItem(LOCAL_CLOUD_PENDING_KEY)==='1'
+  };
+}
+function readLocalProjectsSnapshot(){
+  try{
+    let raw=localStorage.getItem('mt_projects');
+    if(raw){
+      let d=JSON.parse(raw);
+      if(d&&Array.isArray(d)&&d.length){
+        let norm=normalizeProjectsState(d,localStorage.getItem('mt_curProj'));
+        return {hasData:true,projects:norm.projects,curProjId:norm.curProjId};
+      }
+    }
+  }catch(e){}
+  return {hasData:false,projects:[],curProjId:null};
+}
+function applyProjectsSnapshot(projs,cPid){
+  projects=JSON.parse(JSON.stringify(projs));
+  let norm=normalizeProjectsState(projects,cPid);
+  projects=norm.projects;
+  curProjId=norm.curProjId;
+  writeLocalCache();
+}
+function restoreUiPrefsPayload(raw){
+  if(!raw||typeof raw!=='object')return false;
+  if(raw.v===3&&raw.perProject&&typeof raw.perProject==='object'){
+    projectUiStates=JSON.parse(JSON.stringify(raw.perProject));
+    let snap=projectUiStates[curProjId];
+    if(snap&&Object.keys(snap).length>0)applyUiState(snap);
+    else applyEmptyProjectUi();
+    didRestoreProjectUi=true;
+    return true;
+  }
+  projectUiStates={[curProjId]:JSON.parse(JSON.stringify(raw))};
+  applyUiState(raw);
+  didRestoreProjectUi=true;
+  return true;
+}
+function loadLocalUiPrefsFromCache(){
+  try{
+    let u=localStorage.getItem('mt_ui_prefs');
+    if(u)return restoreUiPrefsPayload(JSON.parse(u));
+  }catch(e){}
+  return false;
+}
 function save(){
   pushUndo();
   writeLocalCache();
-  if(!isBootstrapping)debounceSaveToCloud();
+  if(!isBootstrapping){
+    markCloudDirty();
+    debounceSaveToCloud();
+  }
 }
 function debounceSaveToCloud(){
   if(isBootstrapping)return;
@@ -545,6 +706,7 @@ function applyUiState(raw){
 function scheduleUiPrefsSync(){
   if(isBootstrapping)return;
   try{localStorage.setItem('mt_ui_prefs',JSON.stringify(buildFullUiPrefs()));}catch(e){}
+  markCloudDirty();
   debounceSaveToCloud();
 }
 function setSyncStatusUi(code,message){
@@ -555,6 +717,10 @@ function setSyncStatusUi(code,message){
   el.style.color=code==='error'?'var(--danger)':code==='synced'?'var(--done)':'var(--muted)';
 }
 async function syncToCloud(){
+  if(!hasPendingCloudChanges()&&cloudRowExists){
+    setSyncStatusUi('synced');
+    return;
+  }
   if(isSyncing)return;
   let { data, error: sessErr }=await supabase.auth.getSession();
   if(sessErr||!data?.session?.user){
@@ -565,22 +731,66 @@ async function syncToCloud(){
   isSyncing=true;
   setSyncStatusUi('syncing');
   try{
+    let baseRevision=parseRevision(cloudRevision);
+    let startSeq=localChangeSeq;
     let payload={
       user_id:session.user.id,
       projects:projects,
       cur_proj_id:curProjId,
       ui_prefs:buildFullUiPrefs(),
-      updated_at:new Date().toISOString()
+      updated_at:new Date().toISOString(),
+      revision:baseRevision+1
     };
-    let { error }=await supabase.from(MINDTASK_STATE_TABLE).upsert(payload,{onConflict:'user_id'});
-    if(error){
-      console.error(error);
-      setSyncStatusUi('error','云同步失败，数据已保存在本地');
-      return;
+    let savedRow=null;
+    if(cloudRowExists){
+      let { data: updatedRow, error }=await supabase
+        .from(MINDTASK_STATE_TABLE)
+        .update(payload)
+        .eq('user_id',session.user.id)
+        .eq('revision',baseRevision)
+        .select('revision')
+        .maybeSingle();
+      if(error){
+        console.error(error);
+        setSyncStatusUi('error','云同步失败，数据已保存在本地');
+        return;
+      }
+      if(!updatedRow){
+        let keepLocal=await handleSyncConflict(session.user.id);
+        if(keepLocal)cloudSyncQueued=true;
+        return;
+      }
+      savedRow=updatedRow;
+    }else{
+      let { data: insertedRow, error }=await supabase
+        .from(MINDTASK_STATE_TABLE)
+        .insert(payload)
+        .select('revision')
+        .maybeSingle();
+      if(error){
+        if(error.code==='23505'){
+          let keepLocal=await handleSyncConflict(session.user.id);
+          if(keepLocal)cloudSyncQueued=true;
+          return;
+        }
+        console.error(error);
+        setSyncStatusUi('error','云同步失败，数据已保存在本地');
+        return;
+      }
+      if(!insertedRow){
+        setSyncStatusUi('error','云同步未返回版本号，请重试');
+        return;
+      }
+      savedRow=insertedRow;
     }
-    setSyncStatusUi('synced');
+    markCloudSynced(savedRow.revision,startSeq);
+    if(localChangeSeq!==startSeq)cloudSyncQueued=true;
   }finally{
     isSyncing=false;
+    if(cloudSyncQueued||hasPendingCloudChanges()){
+      cloudSyncQueued=false;
+      setTimeout(()=>syncToCloud(),0);
+    }
   }
 }
 async function manualSyncToCloud(){
@@ -615,93 +825,141 @@ function applyLocalStoragePrefs(){
   let bm=localStorage.getItem('mt_bgMode');
   if(bm&&BACKGROUNDS[bm])currentBgMode=bm;
 }
-async function bootstrapFromCloud(user){
-  let needsFirstUpload=false;
-  let { data: row, error }=await supabase
+async function fetchCloudStateRow(userId){
+  return await supabase
     .from(MINDTASK_STATE_TABLE)
     .select('*')
-    .eq('user_id',user.id)
+    .eq('user_id',userId)
     .maybeSingle();
+}
+function applyResolvedCloudRow(row){
+  if(!(row&&row.projects!=null&&Array.isArray(row.projects)&&row.projects.length>0))return false;
+  selectedId=null;
+  closePanel();
+  multiSelected.clear();
+  searchHits.clear();
+  branchHighlightHits.clear();
+  branchHighlightRootId=null;
+  applyProjectsSnapshot(row.projects,row.cur_proj_id);
+  let restored=row.ui_prefs&&typeof row.ui_prefs==='object'&&restoreUiPrefsPayload(row.ui_prefs);
+  if(!restored){
+    if(!loadLocalUiPrefsFromCache()){
+      applyEmptyProjectUi();
+      didRestoreProjectUi=true;
+    }
+  }
+  renderProjects();
+  renderAll();
+  return true;
+}
+async function handleSyncConflict(userId){
+  let { data: latest, error }=await fetchCloudStateRow(userId);
+  if(error){
+    console.error(error);
+    setSyncStatusUi('error','检测到冲突，且读取云端失败，请稍后重试');
+    return false;
+  }
+  let latestRevision=parseRevision(latest&&latest.revision);
+  let keepLocal=await showConfirmModal({
+    title:'同步冲突',
+    message:latest&&latest.projects!=null&&Array.isArray(latest.projects)&&latest.projects.length>0
+      ? '检测到云端已被其他设备更新。\n\n确定：保留当前本地版本，并以最新 revision 重试覆盖云端。\n取消：加载云端最新版本。'
+      : '检测到云端版本状态已变化。\n\n确定：继续保留当前本地版本并重试同步。\n取消：保留当前本地内容，稍后再处理。',
+    confirmText:'保留本地版本',
+    cancelText:latest&&latest.projects!=null&&Array.isArray(latest.projects)&&latest.projects.length>0?'加载云端版本':'稍后处理',
+    confirmVariant:'primary'
+  });
+  if(keepLocal){
+    cloudRevision=latestRevision;
+    cloudRowExists=!!latest;
+    persistCloudSyncMeta();
+    setSyncStatusUi('error','检测到冲突，准备按本地版本重试');
+    return true;
+  }
+  if(latest&&applyResolvedCloudRow(latest)){
+    setCloudSyncBaseline(latestRevision,true,false);
+    setSyncStatusUi('error','检测到冲突，已加载云端最新版本');
+    return false;
+  }
+  setCloudSyncBaseline(latestRevision,!!latest,true);
+  setSyncStatusUi('error','检测到冲突，已保留本地未同步内容');
+  return false;
+}
+async function bootstrapFromCloud(user){
+  let needsFirstUpload=false;
+  let localSyncMeta=readLocalSyncMeta();
+  setCloudSyncBaseline(localSyncMeta.revision,localSyncMeta.rowExists,localSyncMeta.pending);
+  let localSnap=readLocalProjectsSnapshot();
+  let { data: row, error }=await fetchCloudStateRow(user.id);
 
   if(error){
     console.error(error);
-    loadProjectsFromLocalStorage();
+    if(localSnap.hasData)applyProjectsSnapshot(localSnap.projects,localSnap.curProjId);
+    else{
+      projects=[defaultProject('我的第一个项目')];
+      curProjId=projects[0].id;
+      writeLocalCache();
+      setCloudSyncBaseline(localSyncMeta.revision,localSyncMeta.rowExists,true);
+    }
     applyLocalStoragePrefs();
-    try{
-      let u=localStorage.getItem('mt_ui_prefs');
-      if(u){
-        let p=JSON.parse(u);
-        if(p.v===3&&p.perProject){
-          projectUiStates=JSON.parse(JSON.stringify(p.perProject));
-          let snap=projectUiStates[curProjId];
-          if(snap&&Object.keys(snap).length>0){applyUiState(snap);didRestoreProjectUi=true;}
-          else{applyEmptyProjectUi();didRestoreProjectUi=true;}
-        }else{applyUiState(p);didRestoreProjectUi=true;}
-      }
-    }catch(e){}
+    if(!loadLocalUiPrefsFromCache()){
+      applyEmptyProjectUi();
+      didRestoreProjectUi=true;
+    }
     setSyncStatusUi('error','读取云端失败，已使用本地缓存');
     isBootstrapping=false;
     return;
   }
 
+  let remoteRevision=parseRevision(row&&row.revision);
   if(row&&row.projects!=null&&Array.isArray(row.projects)&&row.projects.length>0){
-    projects=JSON.parse(JSON.stringify(row.projects));
-    curProjId=row.cur_proj_id;
-    let norm=normalizeProjectsState(projects,curProjId);
-    projects=norm.projects;
-    curProjId=norm.curProjId;
-    writeLocalCache();
-  }else{
-    let localHas=false;
-    try{
-      let raw=localStorage.getItem('mt_projects');
-      if(raw){
-        let d=JSON.parse(raw);
-        if(d&&Array.isArray(d)&&d.length){
-          projects=d;
-          curProjId=localStorage.getItem('mt_curProj');
-          let norm=normalizeProjectsState(projects,curProjId);
-          projects=norm.projects;
-          curProjId=norm.curProjId;
-          writeLocalCache();
-          localHas=true;
-          needsFirstUpload=true;
-        }
+    if(localSyncMeta.pending&&localSnap.hasData){
+      let keepLocal=await showConfirmModal({
+        title:'发现未同步改动',
+        message:localSyncMeta.revision===remoteRevision
+          ? '检测到本地有未同步改动。\n\n确定：继续使用本地版本，并重新同步到云端。\n取消：加载当前云端版本。'
+          : '检测到本地未同步改动，同时云端已被其他设备更新。\n\n确定：继续保留本地版本，并在当前 revision 上尝试覆盖云端。\n取消：加载云端最新版本。',
+        confirmText:'继续使用本地版本',
+        cancelText:'加载云端版本',
+        confirmVariant:'primary'
+      });
+      if(keepLocal){
+        applyProjectsSnapshot(localSnap.projects,localSnap.curProjId);
+        needsFirstUpload=true;
+        setCloudSyncBaseline(remoteRevision,true,true);
+      }else{
+        applyProjectsSnapshot(row.projects,row.cur_proj_id);
+        setCloudSyncBaseline(remoteRevision,true,false);
       }
-    }catch(e){}
-    if(!localHas){
+    }else{
+      applyProjectsSnapshot(row.projects,row.cur_proj_id);
+      setCloudSyncBaseline(remoteRevision,true,false);
+    }
+  }else{
+    if(localSnap.hasData)applyProjectsSnapshot(localSnap.projects,localSnap.curProjId);
+    else{
       projects=[defaultProject('我的第一个项目')];
       curProjId=projects[0].id;
       writeLocalCache();
-      needsFirstUpload=true;
     }
+    needsFirstUpload=true;
+    setCloudSyncBaseline(0,false,true);
   }
 
   applyLocalStoragePrefs();
 
-  if(row&&row.ui_prefs&&typeof row.ui_prefs==='object'){
-    if(row.ui_prefs.v===3&&row.ui_prefs.perProject&&typeof row.ui_prefs.perProject==='object'){
-      projectUiStates=JSON.parse(JSON.stringify(row.ui_prefs.perProject));
-      let snap=projectUiStates[curProjId];
-      if(snap&&Object.keys(snap).length>0){applyUiState(snap);didRestoreProjectUi=true;}
-      else{applyEmptyProjectUi();didRestoreProjectUi=true;}
-    }else{
-      projectUiStates={[curProjId]:JSON.parse(JSON.stringify(row.ui_prefs))};
-      applyUiState(row.ui_prefs);didRestoreProjectUi=true;
-    }
+  let restored=false;
+  if(needsFirstUpload&&localSnap.hasData){
+    restored=loadLocalUiPrefsFromCache();
+  }else if(row&&row.ui_prefs&&typeof row.ui_prefs==='object'){
+    restored=restoreUiPrefsPayload(row.ui_prefs);
+    if(!restored)restored=loadLocalUiPrefsFromCache();
   }else{
-    try{
-      let u=localStorage.getItem('mt_ui_prefs');
-      if(u){
-        let p=JSON.parse(u);
-        if(p.v===3&&p.perProject){
-          projectUiStates=JSON.parse(JSON.stringify(p.perProject));
-          let snap=projectUiStates[curProjId];
-          if(snap&&Object.keys(snap).length>0){applyUiState(snap);didRestoreProjectUi=true;}
-          else{applyEmptyProjectUi();didRestoreProjectUi=true;}
-        }else{applyUiState(p);didRestoreProjectUi=true;}
-      }
-    }catch(e){}
+    restored=loadLocalUiPrefsFromCache();
+  }
+  if(!restored){
+    applyEmptyProjectUi();
+    didRestoreProjectUi=true;
   }
 
   if(needsFirstUpload){
@@ -720,7 +978,10 @@ function undo(){
   if(!projects.find(p=>p.id===curProjId))curProjId=projects[0].id;
   selectedId=null;closePanel();
   writeLocalCache();
-  if(!isBootstrapping)debounceSaveToCloud();
+  if(!isBootstrapping){
+    markCloudDirty();
+    debounceSaveToCloud();
+  }
   renderProjects();renderAll();
 }
 function redo(){
@@ -732,7 +993,10 @@ function redo(){
   if(!projects.find(p=>p.id===curProjId))curProjId=projects[0].id;
   selectedId=null;closePanel();
   writeLocalCache();
-  if(!isBootstrapping)debounceSaveToCloud();
+  if(!isBootstrapping){
+    markCloudDirty();
+    debounceSaveToCloud();
+  }
   renderProjects();renderAll();
 }
 function curProj(){return projects.find(p=>p.id===curProjId)}
@@ -830,9 +1094,14 @@ function switchProject(id){
   else applyEmptyProjectUi();
   save();renderProjects();
 }
-function deleteProject(id){
+async function deleteProject(id){
   if(projects.length<=1)return;
-  if(!confirm('确定删除此项目？'))return;
+  if(!await showConfirmModal({
+    title:'删除项目',
+    message:'确定删除此项目？',
+    confirmText:'删除',
+    cancelText:'取消'
+  }))return;
   projects=projects.filter(p=>p.id!==id);
   delete projectUiStates[id];
   if(curProjId===id){
@@ -1004,12 +1273,17 @@ function moveNodeToParent(nodeId,newParentId){
   target.collapsed=false;
   return true;
 }
-function deleteNode(nodeId){
+async function deleteNode(nodeId){
   let root=curProj().root;
   if(nodeId===root.id){alert('不能删除根节点');return}
   let node=findNode(root,nodeId);
   let dc=countDesc(node);
-  if(dc>0&&!confirm('该节点有 '+dc+' 个子任务，确定删除？'))return;
+  if(dc>0&&!await showConfirmModal({
+    title:'删除节点',
+    message:'该节点有 '+dc+' 个子任务，确定删除？',
+    confirmText:'删除',
+    cancelText:'取消'
+  }))return;
   let par=findParent(root,nodeId,null);
   par.children=par.children.filter(c=>c.id!==nodeId);
   if(selectedId===nodeId){selectedId=null;closePanel()}
@@ -1094,7 +1368,13 @@ function measureHeightsSync(){
   document.querySelectorAll('#canvas .node').forEach(el=>{
     let id=(el.id||'').replace('nd-','');
     if(!id)return;
-    let h=Math.ceil(el.getBoundingClientRect().height/(zoom||1));
+    // `offsetHeight` is based on layout size before canvas scaling, which is
+    // more stable than reversing `getBoundingClientRect()` with the current zoom.
+    let h=el.offsetHeight||0;
+    if(!h){
+      let rectH=el.getBoundingClientRect().height;
+      h=Math.ceil(rectH/(zoom||1));
+    }
     if(!h||!isFinite(h))return;
     if(Math.abs((nodeHeightCache[id]||0)-h)>1){
       nodeHeightCache[id]=h;
@@ -1104,7 +1384,7 @@ function measureHeightsSync(){
   return changed;
 }
 function renderAllStable(){
-  for(let i=0;i<5;i++){
+  for(let i=0;i<8;i++){
     renderAllCore();
     if(!measureHeightsSync())break;
   }
@@ -1112,7 +1392,7 @@ function renderAllStable(){
 }
 function renderAll(){
   renderAllCore();
-  if(measureHeightsSync()&&relayoutPass<3){
+  if(measureHeightsSync()&&relayoutPass<6){
     relayoutPass++;
     requestAnimationFrame(()=>renderAll());
   }else{
@@ -2329,12 +2609,18 @@ function doImportData(){
   input.onchange=()=>{
     let file=input.files[0];if(!file)return;
     let reader=new FileReader();
-    reader.onload=()=>{
+    reader.onload=async ()=>{
       try{
         let data=JSON.parse(reader.result);
         let err=validateImport(data);
         if(err){alert('导入失败：\n'+err);return}
-        if(!confirm('导入后将替换当前项目「'+curProj().name+'」的数据，是否继续？'))return;
+        if(!await showConfirmModal({
+          title:'导入并覆盖当前项目',
+          message:'导入后将替换当前项目「'+curProj().name+'」的数据，是否继续？',
+          confirmText:'继续导入',
+          cancelText:'取消',
+          confirmVariant:'primary'
+        }))return;
         let proj=curProj();
         proj.name=data.project.title||proj.name;
         proj.root=migrateNode(data.project.root);
@@ -2552,10 +2838,15 @@ function batchSetStatus(status){
   multiSelected.clear();
   save();renderAll();
 }
-function batchDelete(){
+async function batchDelete(){
   let root=curProj().root;
   let count=multiSelected.size;
-  if(!confirm('确定删除选中的 '+count+' 个节点？'))return;
+  if(!await showConfirmModal({
+    title:'批量删除节点',
+    message:'确定删除选中的 '+count+' 个节点？',
+    confirmText:'删除',
+    cancelText:'取消'
+  }))return;
   multiSelected.forEach(id=>{
     if(id===root.id)return;
     let par=findParent(root,id,null);
