@@ -355,7 +355,7 @@ svg.lines{position:absolute;top:0;left:0;overflow:visible;pointer-events:none}
 import { supabase, MINDTASK_STATE_TABLE } from './supabase-client.js';
 
 /** 每次发布/修改页面后递增，便于对照是否已加载最新脚本 */
-const MINDTASK_APP_VERSION = '1.1.10';
+const MINDTASK_APP_VERSION = '1.1.11';
 (()=>{let el=document.getElementById('mindtaskMenuVersion');if(el)el.textContent='Ver '+MINDTASK_APP_VERSION;})();
 
 const AFTER_LOGIN = './index.html';
@@ -372,6 +372,7 @@ let localChangeSeq = 0;
 let syncedChangeSeq = 0;
 let cloudSyncQueued = false;
 let confirmModalState = null;
+let syncStatusState = { code:'idle', message:'待同步', tone:'muted' };
 
 /* ===== DATA ===== */
 const THEMES = {
@@ -541,14 +542,14 @@ function markCloudDirty(){
   if(isBootstrapping)return;
   localChangeSeq++;
   persistCloudSyncMeta();
-  if(!isSyncing)setSyncStatusUi('idle');
+  if(!isSyncing)setSyncStatusUi('pending');
 }
 function markCloudSynced(revision,syncedSeq){
   cloudRevision=parseRevision(revision);
   cloudRowExists=true;
   syncedChangeSeq=Math.max(syncedChangeSeq,syncedSeq==null?localChangeSeq:syncedSeq);
   persistCloudSyncMeta();
-  if(hasPendingCloudChanges())setSyncStatusUi('idle','有新改动待同步');
+  if(hasPendingCloudChanges())setSyncStatusUi('pending','有新改动待同步');
   else setSyncStatusUi('synced');
 }
 function readLocalSyncMeta(){
@@ -711,12 +712,32 @@ function scheduleUiPrefsSync(){
   markCloudDirty();
   debounceSaveToCloud();
 }
-function setSyncStatusUi(code,message){
+function setSyncStatusUi(code,message,opts={}){
   let el=document.getElementById('syncStatusText');
   if(!el)return;
-  let map={idle:'未同步',syncing:'正在同步',synced:'已同步',error:'同步失败'};
-  el.textContent=(message!=null&&message!=='')?message:(map[code]||map.idle);
-  el.style.color=code==='error'?'var(--danger)':code==='synced'?'var(--done)':'var(--muted)';
+  let map={
+    idle:{text:'待同步',tone:'muted'},
+    pending:{text:'待同步',tone:'muted'},
+    syncing:{text:'同步中',tone:'muted'},
+    synced:{text:'已同步',tone:'done'},
+    warn:{text:'本地已保存',tone:'warn'},
+    error:{text:'需要处理',tone:'danger'}
+  };
+  let meta=map[code]||map.idle;
+  let nextMessage=(message!=null&&message!=='')?message:meta.text;
+  let nextTone=opts.tone||meta.tone;
+  if(
+    syncStatusState.code===code &&
+    syncStatusState.message===nextMessage &&
+    syncStatusState.tone===nextTone
+  )return;
+  syncStatusState={code,message:nextMessage,tone:nextTone};
+  el.textContent=nextMessage;
+  el.style.color=
+    nextTone==='danger'?'var(--danger)':
+    nextTone==='done'?'var(--done)':
+    nextTone==='warn'?'var(--hi)':
+    'var(--muted)';
 }
 async function syncToCloud(){
   if(!hasPendingCloudChanges()&&cloudRowExists){
@@ -754,7 +775,7 @@ async function syncToCloud(){
         .maybeSingle();
       if(error){
         console.error(error);
-        setSyncStatusUi('error','云同步失败，数据已保存在本地');
+        setSyncStatusUi('warn','云端暂不可用，本地已保存');
         return;
       }
       if(!updatedRow){
@@ -776,11 +797,11 @@ async function syncToCloud(){
           return;
         }
         console.error(error);
-        setSyncStatusUi('error','云同步失败，数据已保存在本地');
+        setSyncStatusUi('warn','云端暂不可用，本地已保存');
         return;
       }
       if(!insertedRow){
-        setSyncStatusUi('error','云同步未返回版本号，请重试');
+        setSyncStatusUi('warn','同步结果未确认，稍后会再试');
         return;
       }
       savedRow=insertedRow;
@@ -858,7 +879,7 @@ async function handleSyncConflict(userId){
   let { data: latest, error }=await fetchCloudStateRow(userId);
   if(error){
     console.error(error);
-    setSyncStatusUi('error','检测到冲突，且读取云端失败，请稍后重试');
+    setSyncStatusUi('warn','检测到版本冲突，稍后再试');
     return false;
   }
   let latestRevision=parseRevision(latest&&latest.revision);
@@ -875,16 +896,16 @@ async function handleSyncConflict(userId){
     cloudRevision=latestRevision;
     cloudRowExists=!!latest;
     persistCloudSyncMeta();
-    setSyncStatusUi('error','检测到冲突，准备按本地版本重试');
+    setSyncStatusUi('pending','检测到冲突，准备重试同步');
     return true;
   }
   if(latest&&applyResolvedCloudRow(latest)){
     setCloudSyncBaseline(latestRevision,true,false);
-    setSyncStatusUi('error','检测到冲突，已加载云端最新版本');
+    setSyncStatusUi('synced','已切换到云端最新版本');
     return false;
   }
   setCloudSyncBaseline(latestRevision,!!latest,true);
-  setSyncStatusUi('error','检测到冲突，已保留本地未同步内容');
+  setSyncStatusUi('warn','已保留本地改动，稍后可重试同步');
   return false;
 }
 async function bootstrapFromCloud(user){
@@ -908,7 +929,7 @@ async function bootstrapFromCloud(user){
       applyEmptyProjectUi();
       didRestoreProjectUi=true;
     }
-    setSyncStatusUi('error','读取云端失败，已使用本地缓存');
+    setSyncStatusUi('warn','云端暂不可用，已使用本地缓存');
     isBootstrapping=false;
     return;
   }
